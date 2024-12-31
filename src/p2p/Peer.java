@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-class Peer {
+public class Peer {
     private final String peerID;
     private final String ip;
     private final int port;
