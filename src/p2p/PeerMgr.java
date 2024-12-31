@@ -35,14 +35,22 @@ public class PeerMgr {
             socket.send(packet);
             System.out.println("Discovery packet sent from: " + selfIP);
 
-            while (true) {
-                DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
-                socket.receive(response);
+            socket.setSoTimeout(5000); // 5sec listening time for peers
 
-                String peerIP = response.getAddress().getHostAddress();
-                if (!peerIP.equals(selfIP) && !peerList.containsKey(peerIP)) {
-                    System.out.println("Discovered peer: " + peerIP);
-                    addPeer(new Peer(peerIP, peerIP, 4113));
+            while (true) {
+                try {
+                    DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
+                    socket.receive(response);
+
+                    String peerIP = response.getAddress().getHostAddress();
+                    if (!peerIP.equals(selfIP) && !peerList.containsKey(peerIP)) {
+                        System.out.println("Discovered peer: " + peerIP);
+                        addPeer(new Peer(peerIP, peerIP, 4113));
+                    }
+                }
+                catch (IOException e) {
+                    System.out.println("Peer discovery timed out.");
+                    break;
                 }
             }
         }
