@@ -1,9 +1,9 @@
 package p2p;
 
-import java.io.*;
-import java.util.List;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 class Peer {
@@ -40,8 +40,13 @@ class Peer {
     }
 
     // Filters
-    public void excludeFolder(File folder) { excludedFolders.add(folder); }
-    public void excludeFileMask(String mask) { excludedFileMasks.add(mask); }
+    public void excludeFolder(File folder) {
+        excludedFolders.add(folder);
+    }
+
+    public void excludeFileMask(String mask) {
+        excludedFileMasks.add(mask);
+    }
 
     private boolean isExcluded(File file) {
         // Check for excluded folders
@@ -53,7 +58,7 @@ class Peer {
 
         // Check for excluded file mask
         for (String mask : excludedFileMasks) {
-            if (matchesMask(file.getName(), mask)) { // Regex based matching
+            if (matchesMask(file.getName(), mask)) {
                 return true;
             }
         }

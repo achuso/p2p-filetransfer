@@ -1,39 +1,40 @@
 package network;
 
-import p2p.FileManager;
+import p2p.FileMetaData;
+import p2p.Node;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import java.io.*;
-import java.net.*;
-import java.util.concurrent.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.RandomAccessFile;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class FileServer implements Runnable {
     private final Socket socket;
-    private final FileManager fileManager;
+    private final Node node;
 
-    public FileServer(Socket socket, FileManager fileManager) {
+    public FileServer(Socket socket, Node node) {
         this.socket = socket;
-        this.fileManager = fileManager;
+        this.node = node;
     }
 
     @Override
     public void run() {
-        try {
-            DataInputStream input = new DataInputStream(socket.getInputStream());
-            DataOutputStream output = new DataOutputStream(socket.getOutputStream());
+        try (DataInputStream input = new DataInputStream(socket.getInputStream());
+             DataOutputStream output = new DataOutputStream(socket.getOutputStream())) {
 
-            String fileName = input.readUTF(); // Read requested file name
-            File file = new File(fileName);
+            String fileName = input.readUTF();
+            FileMetaData metadata = node.getFileManager().getFileMetaData(fileName);
 
-            if (!file.exists()) {
+            if (metadata == null || !metadata.getFile().exists()) {
                 output.writeUTF("ERROR: File not found");
                 return;
             }
 
+            File file = metadata.getFile();
             long fileSize = file.length();
             output.writeLong(fileSize); // Send file size to client
 
@@ -46,27 +47,24 @@ public class FileServer implements Runnable {
             }
 
             System.out.println("File transfer complete for: " + fileName);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                socket.close();
-            } catch (IOException ignored) {
-            }
+        }
+        catch (Exception e) {
+           System.out.println("File transfer failed: " + e.getMessage());
         }
     }
 
-    public static void startServer(int port, FileManager fileManager) {
+    public static void startServer(int port, Node node) {
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             ExecutorService executor = Executors.newCachedThreadPool();
             System.out.println("FileServer started on port " + port);
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                executor.submit(new FileServer(clientSocket, fileManager));
+                executor.submit(new FileServer(clientSocket, node));
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+        }
+        catch (Exception e) {
+            System.out.println("Error starting server:" + e.getMessage());
         }
     }
 }
