@@ -41,8 +41,8 @@ public class CenterPanel extends JPanel {
         addFolderButton = new JButton("Add");
         delFolderButton = new JButton("Del");
 
-        addFolderButton.addActionListener(_ -> addFolderExclusion());
-        delFolderButton.addActionListener(_ -> removeFolderExclusion());
+        addFolderButton.addActionListener(event -> addFolderExclusion());
+        delFolderButton.addActionListener(event -> removeFolderExclusion());
 
         folderButtons.add(addFolderButton);
         folderButtons.add(delFolderButton);
@@ -62,8 +62,8 @@ public class CenterPanel extends JPanel {
         addFileButton = new JButton("Add");
         delFileButton = new JButton("Del");
 
-        addFileButton.addActionListener(_ -> addFileExclusion());
-        delFileButton.addActionListener(_ -> removeFileExclusion());
+        addFileButton.addActionListener(event -> addFileExclusion());
+        delFileButton.addActionListener(event -> removeFileExclusion());
 
         fileButtons.add(addFileButton);
         fileButtons.add(delFileButton);

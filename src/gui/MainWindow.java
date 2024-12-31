@@ -1,11 +1,13 @@
 package gui;
 
+import p2p.Node;
+
 import javax.swing.*;
 import java.awt.*;
 
 public class MainWindow extends JFrame {
 
-    public MainWindow() {
+    public MainWindow(Node node) {
         setTitle("P2P File Sharing - Onat Ribar");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(600, 800);
@@ -14,7 +16,7 @@ public class MainWindow extends JFrame {
 
         UIManager.put("OptionPane.messageFont", new Font("SansSerif", Font.PLAIN, 12));
 
-        final TopPanel topPanel = new TopPanel();
+        final TopPanel topPanel = new TopPanel(node);
         final CenterPanel centerPanel = new CenterPanel();
         final BottomPanel bottomPanel = new BottomPanel();
 

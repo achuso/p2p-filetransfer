@@ -24,7 +24,7 @@ public class MenuBar extends JMenuBar {
         JMenuItem disconnectItem = new JMenuItem("Disconnect");
         JMenuItem exitItem = new JMenuItem("Exit");
 
-        exitItem.addActionListener(_ -> System.exit(0));
+        exitItem.addActionListener(event -> System.exit(0));
 
         fileMenu.add(connectItem);
         fileMenu.add(disconnectItem);
@@ -37,7 +37,7 @@ public class MenuBar extends JMenuBar {
     private JMenu createHelpMenu(JFrame parentFrame) {
         JMenu helpMenu = new JMenu("Help");
         JMenuItem aboutItem = new JMenuItem("About");
-        aboutItem.addActionListener(_ -> JOptionPane.showMessageDialog(
+        aboutItem.addActionListener(event -> JOptionPane.showMessageDialog(
                 parentFrame,
                 this.aboutText,
                 "About",
