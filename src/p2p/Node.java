@@ -14,51 +14,66 @@ public class Node {
     private final Peer self;
     private final PeerMgr peerMgr;
     private final FileMgr fileMgr;
-    private final File downloadFolder;
+    private File sharedFolder;
+    private File downloadFolder;
 
-    public Node(String peerID, String ip, int port) {
+    public Node(String peerID, String ip, int port, boolean isDockerInstance) {
         this.self = new Peer(peerID, ip, port);
         this.peerMgr = new PeerMgr();
         this.fileMgr = new FileMgr();
-        this.downloadFolder = new File("downloads");
-        if (!downloadFolder.exists()) {
-            boolean created = downloadFolder.mkdirs();
-            if (!created) {
-                throw new RuntimeException("Failed to create download folder: " + downloadFolder.getAbsolutePath());
+
+        if (isDockerInstance) {
+            // Preset folders for Docker containers
+            this.sharedFolder = new File("/test/shared");
+            this.downloadFolder = new File("/downloads");
+        }
+        else {
+            this.sharedFolder = null;
+            this.downloadFolder = null;
+        }
+
+        if (isDockerInstance) {
+            if (!sharedFolder.exists() || !sharedFolder.isDirectory()) {
+                throw new RuntimeException("Invalid shared folder in Docker: " + sharedFolder.getAbsolutePath());
+            }
+
+            if (!downloadFolder.exists()) {
+                boolean created = downloadFolder.mkdirs();
+                if (!created) {
+                    throw new RuntimeException("Failed to create download folder in Docker: " + downloadFolder.getAbsolutePath());
+                }
             }
         }
     }
 
-    public static void main(String[] args) {
-        // Init node
-        Node node = new Node("peer1", "127.0.0.1", 4113);
-
-        // Start file server
-        new Thread(node::startServer).start();
-
-        // Test sharing files
-        System.out.println("Sharing files...");
-        node.shareFile(new File("test/shared/test1.txt"));
-        node.shareFile(new File("test/shared/test2.txt"));
-        System.out.println("Shared files at startup:");
-        node.getFileManager().listSharedFiles();
-
-        // Test peer discovery
-        System.out.println("Discovering peers...");
-        node.discoverPeers();
-
-        // List all peers
-        System.out.println("Discovered peers:");
-        for (Peer peer : node.getPeerManager().getAllPeers()) {
-            System.out.println("- " + peer.getPeerID() + " (" + peer.getIP() + ")");
+    public void setSharedFolder(String path) {
+        File newSharedFolder = new File(path);
+        if (!newSharedFolder.exists() || !newSharedFolder.isDirectory()) {
+            throw new RuntimeException("Invalid shared folder: " + path);
         }
+        this.sharedFolder = newSharedFolder;
+        fileMgr.refreshSharedFolder(sharedFolder);
+        System.out.println("Shared folder set to: " + sharedFolder.getAbsolutePath());
+    }
 
-        // Test downloading a file
-        System.out.println("Initiating file download...");
-        node.downloadFile("test1.txt");
+    public void setDownloadFolder(String path) {
+        File newDownloadFolder = new File(path);
+        if (!newDownloadFolder.exists()) {
+            boolean created = newDownloadFolder.mkdirs();
+            if (!created) {
+                throw new RuntimeException("Failed to create download folder: " + path);
+            }
+        }
+        this.downloadFolder = newDownloadFolder;
+        System.out.println("Download folder set to: " + downloadFolder.getAbsolutePath());
+    }
 
-        // Completion
-        System.out.println("Node operations completed.");
+    public File getSharedFolder() {
+        return sharedFolder;
+    }
+
+    public File getDownloadFolder() {
+        return downloadFolder;
     }
 
     public void startServer() {
@@ -70,8 +85,7 @@ public class Node {
                     Socket clientSocket = serverSocket.accept();
                     new Thread(new FileServer(clientSocket, this)).start();
                 }
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 System.err.println("Server error: " + e.getMessage());
             }
         });
@@ -82,14 +96,6 @@ public class Node {
     public void discoverPeers() {
         peerMgr.clearPeers();
         peerMgr.discoverPeers(self.getIP(), self.getPort());
-    }
-
-    public void shareFile(File file) {
-        if (!file.exists()) {
-            System.err.println("File does not exist and cannot be shared: " + file.getAbsolutePath());
-            return;
-        }
-        fileMgr.addSharedFile(file);
     }
 
     public void downloadFile(String fileName) {
@@ -123,7 +129,8 @@ public class Node {
         try {
             FileClient.downloadFile(peerIP, peerPort, fileName, downloadFolder);
             System.out.println("File downloaded successfully: " + fileName);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             System.err.println("Error during file download: " + e.getMessage());
             throw new RuntimeException("Download failed from peer " + peerIP + " on port " + peerPort + ": " + e.getMessage(), e);
         }
