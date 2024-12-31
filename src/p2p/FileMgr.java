@@ -31,6 +31,18 @@ public class FileMgr {
         }
     }
 
+    public void listSharedFiles() {
+        if (sharedFiles.isEmpty()) {
+            System.out.println("No files shared.");
+        }
+        else {
+            System.out.println("Shared files:");
+            for (String fileName : sharedFiles.keySet()) {
+                System.out.println("- " + fileName);
+            }
+        }
+    }
+
     public List<FileMetaData> getSharedFiles() { return new ArrayList<>(sharedFiles.values()); }
     public Map<String, FileMetaData> getDownloadingFiles() { return downloadingFiles; }
     public FileMetaData getFileMetaData(String fileName) { return sharedFiles.get(fileName); }

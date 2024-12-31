@@ -1,12 +1,8 @@
 package network;
 
-import p2p.FileMetaData;
 import p2p.Node;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
@@ -26,30 +22,39 @@ public class FileServer implements Runnable {
         try (DataInputStream input = new DataInputStream(socket.getInputStream());
              DataOutputStream output = new DataOutputStream(socket.getOutputStream())) {
 
-            String fileName = input.readUTF();
-            FileMetaData metadata = node.getFileManager().getFileMetaData(fileName);
+            System.out.println("New connection from: " + socket.getInetAddress());
 
-            if (metadata == null || !metadata.getFile().exists()) {
+            String fileName = input.readUTF();
+            System.out.println("Request received for file: " + fileName);
+
+            File file = new File("/test/shared/" + fileName);
+            System.out.println("Checking file existence: " + file.getAbsolutePath() + ", Exists: " + file.exists());
+
+            if (!file.exists()) {
                 output.writeUTF("ERROR: File not found");
+                System.err.println("ERROR: File not found: " + file.getAbsolutePath());
                 return;
             }
 
-            File file = metadata.getFile();
-            long fileSize = file.length();
-            output.writeLong(fileSize); // Send file size to client
+            output.writeUTF("OK");
+            System.out.println("File exists. Preparing to send: " + fileName);
 
-            try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-                byte[] buffer = new byte[256 * 1024]; // 256KB buffer
+            long fileSize = file.length();
+            output.writeLong(fileSize);
+
+            try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file))) {
+                byte[] buffer = new byte[256 * 1024];
                 int bytesRead;
-                while ((bytesRead = raf.read(buffer)) != -1) {
+                while ((bytesRead = bis.read(buffer)) != -1) {
                     output.write(buffer, 0, bytesRead);
                 }
             }
 
-            System.out.println("File transfer complete for: " + fileName);
+            System.out.println("File transfer completed: " + fileName);
+
         }
-        catch (Exception e) {
-           System.out.println("File transfer failed: " + e.getMessage());
+        catch (IOException e) {
+            System.err.println("FileServer error: " + e.getMessage());
         }
     }
 
