@@ -38,9 +38,6 @@ public class Node {
         System.out.println("Discovering peers...");
         node.discoverPeers();
 
-        // Manual peer for testing
-        Peer peer2 = new Peer("peer2", "127.0.0.2", 4113);
-        node.getPeerManager().addPeer(peer2);
 
         // List all peers
         System.out.println("Discovered peers:");
@@ -65,7 +62,8 @@ public class Node {
                     Socket clientSocket = serverSocket.accept();
                     new Thread(new FileServer(clientSocket, this)).start();
                 }
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 System.out.println(e.getMessage());
             }
         });
@@ -74,7 +72,8 @@ public class Node {
     }
 
     public void discoverPeers() {
-        peerMgr.discoverPeers();
+        peerMgr.clearPeers();
+        peerMgr.discoverPeers(self.getIP(), self.getPort());
     }
 
     public void shareFile(File file) {
@@ -82,7 +81,6 @@ public class Node {
     }
 
     public void downloadFile(String fileName) {
-        // Query PeerManager for available peers
         List<Peer> peers = new ArrayList<>(peerMgr.getAllPeers());
         if (peers.isEmpty()) {
             System.out.println("No peers available for file download: " + fileName);
@@ -112,7 +110,8 @@ public class Node {
         try {
             FileClient.downloadFile(peerIP, peerPort, fileName, destinationFolder);
             System.out.println("File downloaded successfully: " + fileName);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("Download failed from peer " + peerIP + ": " + e.getMessage());
         }
     }

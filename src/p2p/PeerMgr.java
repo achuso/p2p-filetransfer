@@ -15,22 +15,38 @@ public class PeerMgr {
         this.peerList = new HashMap<>();
     }
 
-    public void addPeer(Peer peer) {
-        peerList.put(peer.getPeerID(), peer);
+    public void clearPeers() {
+        peerList.clear();
+        System.out.println("Cleared peer list.");
     }
 
-    public void discoverPeers() {
-        try (DatagramSocket socket = new DatagramSocket()) {
+    public void addPeer(Peer peer) {
+        if (!peerList.containsKey(peer.getPeerID())) {
+            peerList.put(peer.getPeerID(), peer);
+            System.out.println("Added peer: " + peer.getPeerID());
+        }
+    }
+
+    public void discoverPeers(String selfIP, int selfPort) {
+        try (DatagramSocket socket = new DatagramSocket(selfPort)) {
+            socket.setBroadcast(true);
             byte[] buffer = "DISCOVER_PEER".getBytes();
-            DatagramPacket packet = new DatagramPacket(
-                    buffer,
-                    buffer.length,
-                    InetAddress.getByName("255.255.255.255"),
-                    4113
-            );
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName("255.255.255.255"), 4113);
             socket.send(packet);
-            System.out.println("Discovery packet sent on port 4113.");
-        } catch (IOException e) {
+            System.out.println("Discovery packet sent from: " + selfIP);
+
+            while (true) {
+                DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
+                socket.receive(response);
+
+                String peerIP = response.getAddress().getHostAddress();
+                if (!peerIP.equals(selfIP) && !peerList.containsKey(peerIP)) {
+                    System.out.println("Discovered peer: " + peerIP);
+                    addPeer(new Peer(peerIP, peerIP, 4113));
+                }
+            }
+        }
+        catch (IOException e) {
             System.out.println("Failed to discover peers: " + e.getMessage());
         }
     }
