@@ -37,7 +37,12 @@ public class MenuBar extends JMenuBar {
     private JMenu createHelpMenu(JFrame parentFrame) {
         JMenu helpMenu = new JMenu("Help");
         JMenuItem aboutItem = new JMenuItem("About");
-        aboutItem.addActionListener(_ -> JOptionPane.showMessageDialog(parentFrame, this.aboutText));
+        aboutItem.addActionListener(_ -> JOptionPane.showMessageDialog(
+                parentFrame,
+                this.aboutText,
+                "About",
+                JOptionPane.INFORMATION_MESSAGE
+        ));
         helpMenu.add(aboutItem);
 
         return helpMenu;

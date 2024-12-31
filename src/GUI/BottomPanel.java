@@ -27,16 +27,16 @@ public class BottomPanel extends JPanel {
     }
 
     private JPanel createDownloadingFilesPanel() {
-        JPanel downloadingPanel = new JPanel(new BorderLayout());
-        downloadingPanel.add(new JLabel("Downloading files:"), BorderLayout.NORTH);
+        JPanel downloadingPanel = new JPanel(new BorderLayout(10, 0));
+        downloadingPanel.setBorder(BorderFactory.createTitledBorder("Downloading files"));
         downloadingFiles = new JList<>();
         downloadingPanel.add(new JScrollPane(downloadingFiles), BorderLayout.CENTER);
         return downloadingPanel;
     }
 
     private JPanel createFoundFilesPanel() {
-        JPanel foundPanel = new JPanel(new BorderLayout());
-        foundPanel.add(new JLabel("Found files:"), BorderLayout.NORTH);
+        JPanel foundPanel = new JPanel(new BorderLayout(10, 0));
+        foundPanel.setBorder(BorderFactory.createTitledBorder("Found files"));
         foundFiles = new JList<>();
         foundPanel.add(new JScrollPane(foundFiles), BorderLayout.CENTER);
         return foundPanel;
@@ -44,6 +44,7 @@ public class BottomPanel extends JPanel {
 
     private JPanel createSearchPanel() {
         JPanel searchPanel = new JPanel(new BorderLayout(5, 0));
+        searchPanel.setBorder(BorderFactory.createTitledBorder("Search"));
         searchField = new JTextField(30);
         searchButton = new JButton("Search");
         searchPanel.add(searchField, BorderLayout.CENTER);

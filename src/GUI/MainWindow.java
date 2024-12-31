@@ -12,6 +12,8 @@ public class MainWindow extends JFrame {
         setLayout(new BorderLayout());
         setResizable(false);
 
+        UIManager.put("OptionPane.messageFont", new Font("SansSerif", Font.PLAIN, 12));
+
         final TopPanel topPanel = new TopPanel();
         final CenterPanel centerPanel = new CenterPanel();
         final BottomPanel bottomPanel = new BottomPanel();

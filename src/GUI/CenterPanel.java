@@ -3,6 +3,10 @@ package GUI;
 import javax.swing.*;
 import java.awt.*;
 
+//import java.util.List;
+//import java.util.stream.Collectors;
+//import java.util.stream.IntStream;
+
 public class CenterPanel extends JPanel {
     public JCheckBox rootCheckBox;
     public JList<String> folderExclusions;
@@ -19,27 +23,16 @@ public class CenterPanel extends JPanel {
         folderExclusionsModel = new DefaultListModel<>();
         fileExclusionsModel = new DefaultListModel<>();
 
-        add(createRootCheckBox(), BorderLayout.NORTH);
-        add(createExclusionPanel(), BorderLayout.CENTER);
-    }
-
-    private JCheckBox createRootCheckBox() {
-        rootCheckBox = new JCheckBox("Check new files only in the root");
-        return rootCheckBox;
-    }
-
-    private JPanel createExclusionPanel() {
-        JPanel exclusionPanel = new JPanel(new GridLayout(1, 2, 10, 0));
-        JPanel folderPanel = createFolderExclusionsPanel();
-        JPanel filePanel = createFileExclusionsPanel();
-        exclusionPanel.add(folderPanel);
-        exclusionPanel.add(filePanel);
-        return exclusionPanel;
+        add(createFolderExclusionsPanel(), BorderLayout.WEST);
+        add(createFileExclusionsPanel(), BorderLayout.EAST);
     }
 
     private JPanel createFolderExclusionsPanel() {
         JPanel folderPanel = new JPanel(new BorderLayout(5, 5));
-        folderPanel.add(new JLabel("Exclude files under these folders:"), BorderLayout.NORTH);
+        folderPanel.setBorder(BorderFactory.createTitledBorder("Folder exclusion"));
+
+        rootCheckBox = new JCheckBox("Check new files only in the root");
+        folderPanel.add(rootCheckBox, BorderLayout.NORTH);
 
         folderExclusions = new JList<>(folderExclusionsModel);
         folderPanel.add(new JScrollPane(folderExclusions), BorderLayout.CENTER);
@@ -60,7 +53,7 @@ public class CenterPanel extends JPanel {
 
     private JPanel createFileExclusionsPanel() {
         JPanel filePanel = new JPanel(new BorderLayout(5, 5));
-        filePanel.add(new JLabel("Exclude files matching these masks:"), BorderLayout.NORTH);
+        filePanel.setBorder(BorderFactory.createTitledBorder("Exclude files matching these masks"));
 
         fileExclusions = new JList<>(fileExclusionsModel);
         filePanel.add(new JScrollPane(fileExclusions), BorderLayout.CENTER);
@@ -83,6 +76,7 @@ public class CenterPanel extends JPanel {
         String newFolder = JOptionPane.showInputDialog(this, "Enter folder to exclude:");
         if (newFolder != null && !newFolder.trim().isEmpty() && !folderExclusionsModel.contains(newFolder))
             folderExclusionsModel.addElement(newFolder);
+        // System.out.println(getFolderExclusions());
     }
 
     private void removeFolderExclusion() {
@@ -95,6 +89,7 @@ public class CenterPanel extends JPanel {
         String newFileMask = JOptionPane.showInputDialog(this, "Enter file mask to exclude:");
         if (newFileMask != null && !newFileMask.trim().isEmpty() && !fileExclusionsModel.contains(newFileMask))
             fileExclusionsModel.addElement(newFileMask);
+        // System.out.println(getFileExclusions());
     }
 
     private void removeFileExclusion() {
@@ -103,6 +98,15 @@ public class CenterPanel extends JPanel {
             fileExclusionsModel.remove(selectedIndex);
     }
 
-//    public JList<String> getFolderExclusions() { return this.folderExclusions; }
-//    public JList<String> getFileExclusions() { return this.fileExclusions; }
+//    public List<String> getFolderExclusions() {
+//        return IntStream.range(0, folderExclusionsModel.size())
+//                .mapToObj(folderExclusionsModel::getElementAt)
+//                .collect(Collectors.toList());
+//    }
+
+//    public List<String> getFileExclusions() {
+//        return IntStream.range(0, fileExclusionsModel.size())
+//                .mapToObj(fileExclusionsModel::getElementAt)
+//                .collect(Collectors.toList());
+//    }
 }

@@ -1,11 +1,12 @@
 package GUI;
 
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
 
 public class TopPanel extends JPanel {
-    public JTextField sharedFolderField;
-    public JTextField destinationFolderField;
+    public JTextField sharedFolderTextField;
+    public JTextField destinationFolderTextField;
     public JButton setSharedFolderButton;
     public JButton setDestinationButton;
 
@@ -17,21 +18,36 @@ public class TopPanel extends JPanel {
 
     private JPanel createSharedFolderPanel() {
         JPanel sharedFolderPanel = new JPanel(new BorderLayout(10, 0));
-        sharedFolderPanel.add(new JLabel("Root of the P2P shared folder:"), BorderLayout.WEST);
-        sharedFolderField = new JTextField(30);
-        sharedFolderPanel.add(sharedFolderField, BorderLayout.CENTER);
+        sharedFolderPanel.setBorder(createTitledBorder("Root of the P2P shared folder"));
+
+        JPanel innerPanel = new JPanel(new BorderLayout(10, 0));
+        sharedFolderTextField = new JTextField(30);
+        innerPanel.add(sharedFolderTextField, BorderLayout.CENTER);
         setSharedFolderButton = new JButton("Set");
-        sharedFolderPanel.add(setSharedFolderButton, BorderLayout.EAST);
+        innerPanel.add(setSharedFolderButton, BorderLayout.EAST);
+
+        sharedFolderPanel.add(innerPanel, BorderLayout.CENTER);
         return sharedFolderPanel;
     }
 
     private JPanel createDestinationFolderPanel() {
         JPanel destinationFolderPanel = new JPanel(new BorderLayout(10, 0));
-        destinationFolderPanel.add(new JLabel("Destination folder:"), BorderLayout.WEST);
-        destinationFolderField = new JTextField(30);
-        destinationFolderPanel.add(destinationFolderField, BorderLayout.CENTER);
+        destinationFolderPanel.setBorder(createTitledBorder("Destination folder"));
+
+        JPanel interiorPanel = new JPanel(new BorderLayout(10, 0));
+        destinationFolderTextField = new JTextField(30);
+        interiorPanel.add(destinationFolderTextField, BorderLayout.CENTER);
         setDestinationButton = new JButton("Set");
-        destinationFolderPanel.add(setDestinationButton, BorderLayout.EAST);
+        interiorPanel.add(setDestinationButton, BorderLayout.EAST);
+
+        destinationFolderPanel.add(interiorPanel, BorderLayout.CENTER);
         return destinationFolderPanel;
+    }
+
+    private TitledBorder createTitledBorder(String title) {
+        TitledBorder border = BorderFactory.createTitledBorder(title);
+        border.setTitleColor(UIManager.getColor("TitledBorder.titleColor"));
+        border.setTitleFont(UIManager.getFont("Label.font"));
+        return border;
     }
 }
