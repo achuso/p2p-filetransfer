@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Collection;
 
 public class Node {
     private final Peer self;
@@ -64,7 +65,7 @@ public class Node {
 
     public void startServer() {
         Thread serverThread = new Thread(() -> {
-            int retries = 3; // Number of retries
+            int retries = 3;
             int currentPort = self.getPort();
 
             while (retries > 0) {
@@ -103,10 +104,14 @@ public class Node {
                 try {
                     peerMgr.clearPeers();
                     peerMgr.discoverPeers(self.getIP(), self.getPort());
-                    Thread.sleep(10000); // Discover peers every 10 seconds
-                } catch (InterruptedException e) {
+                    Thread.sleep(5000); // Discover peers every 5 seconds!
+                }
+                catch (InterruptedException e) {
                     System.out.println("Peer discovery interrupted.");
-                    break;
+                    Thread.currentThread().interrupt();
+                }
+                catch (Exception e) {
+                    System.err.println("Error during peer discovery: " + e.getMessage());
                 }
             }
         });
@@ -114,11 +119,12 @@ public class Node {
         discoveryThread.start();
     }
 
-    public void discoverPeers() {
+    public void discoverPeersOnce() {
         try {
             peerMgr.clearPeers();
             peerMgr.discoverPeers(self.getIP(), self.getPort());
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             System.err.println("Error during peer discovery: " + e.getMessage());
         }
     }
@@ -137,7 +143,8 @@ public class Node {
                         }
                     }
                     Thread.sleep(5000); // Check for new files every 5 seconds
-                } catch (InterruptedException e) {
+                }
+                catch (InterruptedException e) {
                     System.out.println("File sharing interrupted.");
                     break;
                 }
@@ -160,16 +167,17 @@ public class Node {
         try {
             FileClient.downloadFile(peerIP, peerPort, fileName, downloadFolder);
             System.out.println("File downloaded successfully: " + fileName);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             System.err.println("Error during file download: " + e.getMessage());
         }
     }
 
-    public FileMgr getFileManager() {
-        return this.fileMgr;
-    }
-
     public PeerMgr getPeerManager() {
         return this.peerMgr;
+    }
+
+    public Collection<Peer> getDiscoveredPeers() {
+        return peerMgr.getAllPeers();
     }
 }

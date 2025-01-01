@@ -18,7 +18,7 @@ public class Main {
 
             // Start server
             new Thread(node::startServer).start();
-            node.discoverPeers();
+            node.startPeerDiscovery();
 
             // Log discovered peers
             System.out.println("Discovered peers:");

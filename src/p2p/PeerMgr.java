@@ -28,15 +28,19 @@ public class PeerMgr {
     }
 
     public void discoverPeers(String selfIP, int selfPort) {
-        try (DatagramSocket socket = new DatagramSocket(selfPort)) {
+        try (DatagramSocket socket = new DatagramSocket(selfPort, InetAddress.getByName("0.0.0.0"))) {
+            socket.setReuseAddress(true);
             socket.setBroadcast(true);
             byte[] buffer = "DISCOVER_PEER".getBytes();
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName("10.22.255.255"), 4113);
+
+            // Broadcast to subnet
+            InetAddress broadcastAddress = InetAddress.getByName("10.22.249.255");
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, broadcastAddress, 4113);
             socket.send(packet);
-            System.out.println("Discovery packet sent from: " + selfIP);
+            System.out.println("Discovery packet sent.");
 
-            socket.setSoTimeout(5000); // Timeout for responses
-
+            // Receive responses
+            socket.setSoTimeout(5000);
             while (true) {
                 try {
                     DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
@@ -47,12 +51,14 @@ public class PeerMgr {
                         System.out.println("Discovered peer: " + peerIP);
                         addPeer(new Peer(peerIP, peerIP, 4113));
                     }
-                } catch (Exception e) {
-                    System.out.println("Peer discovery timed out: " + e.getMessage());
+                }
+                catch (IOException e) {
+                    System.out.println("Discovery timed out: " + e.getMessage());
                     break;
                 }
             }
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             System.err.println("Failed to discover peers: " + e.getMessage());
         }
     }

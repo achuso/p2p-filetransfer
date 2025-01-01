@@ -31,4 +31,10 @@ services:
 
 networks:
   macvlan_network:
-    external: true
+    driver: macvlan
+    driver_opts:
+      parent: wlp0s20f3
+    ipam:
+      config:
+        - subnet: 10.22.249.0/24
+          gateway: 10.22.249.1
