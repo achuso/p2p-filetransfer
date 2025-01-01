@@ -3,8 +3,8 @@ services:
     build: .
     container_name: peer1
     networks:
-      p2p-network:
-        ipv4_address: 192.168.1.102
+      macvlan_network:
+        ipv4_address: 10.22.249.201
     environment:
       - NODE_ID=peer1
       - DOCKER_BOOL=1
@@ -13,8 +13,8 @@ services:
     build: .
     container_name: peer2
     networks:
-      p2p-network:
-        ipv4_address: 192.168.1.103
+      macvlan_network:
+        ipv4_address: 10.22.249.202
     environment:
       - NODE_ID=peer2
       - DOCKER_BOOL=1
@@ -23,15 +23,12 @@ services:
     build: .
     container_name: peer3
     networks:
-      p2p-network:
-        ipv4_address: 192.168.1.104
+      macvlan_network:
+        ipv4_address: 10.22.249.203
     environment:
       - NODE_ID=peer3
       - DOCKER_BOOL=1
 
 networks:
-  p2p-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 192.168.1.0/24
+  macvlan_network:
+    external: true
