@@ -28,7 +28,7 @@ public class MainWindow extends JFrame {
         container.add(centerPanel, BorderLayout.CENTER);
         container.add(bottomPanel, BorderLayout.SOUTH);
         add(container, BorderLayout.CENTER);
-        setJMenuBar(new MenuBar(this));
+        setJMenuBar(new MenuBar(this, node));
 
         setVisible(true);
     }
