@@ -32,45 +32,13 @@ public class MainWindow extends JFrame {
         container.add(bottomPanel, BorderLayout.SOUTH);
         add(container, BorderLayout.CENTER);
 
-        setJMenuBar(createMenuBar());
+        createMenuBar();
 
         setVisible(true);
     }
 
-    private JMenuBar createMenuBar() {
-        JMenuBar menuBar = new JMenuBar();
-
-        JMenu fileMenu = new JMenu("File");
-
-        JMenuItem connectItem = new JMenuItem("Connect");
-        connectItem.addActionListener(event -> handleConnect());
-
-        JMenuItem disconnectItem = new JMenuItem("Disconnect");
-        disconnectItem.addActionListener(event -> handleDisconnect());
-
-        JMenuItem exitItem = new JMenuItem("Exit");
-        exitItem.addActionListener(event -> System.exit(0));
-
-        fileMenu.add(connectItem);
-        fileMenu.add(disconnectItem);
-        fileMenu.addSeparator();
-        fileMenu.add(exitItem);
-
-        menuBar.add(fileMenu);
-
-        JMenu helpMenu = new JMenu("Help");
-        JMenuItem aboutItem = new JMenuItem("About");
-        aboutItem.addActionListener(event -> JOptionPane.showMessageDialog(
-                this,
-                "CSE471 Term Project\nP2P File Sharing Application\n\nName: Onat Ribar\nStudent ID: 20210702099",
-                "About",
-                JOptionPane.INFORMATION_MESSAGE
-        ));
-        helpMenu.add(aboutItem);
-
-        menuBar.add(helpMenu);
-
-        return menuBar;
+    private void createMenuBar() {
+        setJMenuBar(new MenuBar(this, node));
     }
 
     private void handleConnect() {
