@@ -44,6 +44,9 @@ docker-compose up --build
 This initializes three peers running on Alpine Linux. 
 Feel free to change the number of peers initialized in the `docker-compose.yml` file.
 
+### 5. Run the GUI
+Run the project!
+
 
 ## Additional Notes
 1. Macvlan does not persist across sessions, so make sure to repeat its initialization.
