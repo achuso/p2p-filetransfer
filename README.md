@@ -1,17 +1,13 @@
-P2P File Transfer Application
----
+# P2P File Transfer Application
 
 A term project for the CSE471 course, allows for P2P file sharing between peers in a network.
 The network is populated by containers running Alpine Linux. 
 To bridge communication between the Docker network and the local machine, a macvlan network is utilized.
 
----
 
 ## Prerequisites
 * Java 17
 * Docker & Docker Compose
-
----
 
 ## Steps to Run
 
@@ -46,9 +42,8 @@ Adjust your gateway and subnet addresses if necessary, find them via `ip route`.
 docker-compose up --build
 ```
 This initializes three peers running on Alpine Linux. 
-Feel free to change the number of peers initialized in the `docker-compose.yml` file.\
+Feel free to change the number of peers initialized in the `docker-compose.yml` file.
 
----
 
 ## Additional Notes
 1. Macvlan does not persist across sessions, so make sure to repeat its initialization.
@@ -56,5 +51,5 @@ Feel free to change the number of peers initialized in the `docker-compose.yml` 
     1. disabling ufw via `sudo ufw disable`,
     2. freeing up the ports 4113 and 4114 (my lucky numbers!),
    3. and pinging the containers from the local machine and vice versa:
-        * From local machine: `ping 10.22.249.201`
+        * From local machine: `ping 10.22.249.201` to `ping 10.22.249.203`
         * From container: `docker exec -it peer1 ping 10.22.249.100`
