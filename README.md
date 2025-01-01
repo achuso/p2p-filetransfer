@@ -1,7 +1,7 @@
 # P2P File Transfer Application
 
 A term project for the CSE471 course, allows for P2P file sharing between peers in a network.
-The network is populated by containers running Alpine Linux. 
+The network is populated by containers running Alpine Linux.
 To bridge communication between the Docker network and the local machine, a MacVLAN network is utilized.
 
 
@@ -38,8 +38,8 @@ If necessary, adjust the number of peers, as well as your gateway and subnet add
 ## Additional Notes
 1. MacVLAN does not persist across sessions, so make sure to repeat its initialization.
 2. If network bridging does not work, consider:
-    1. disabling ufw via `sudo ufw disable`,
-    2. freeing up the ports 4113 and 4114 (my lucky numbers!),
+   1. disabling ufw via `sudo ufw disable`,
+   2. freeing up the ports 4113 and 4114 (my lucky numbers!),
    3. and pinging the containers from the local machine and vice versa:
-        * From local machine: `ping 10.22.249.201` to `ping 10.22.249.203`
-        * From container: `docker exec -it peer1 ping 10.22.249.100`
+      * From local machine: `ping 10.22.249.201` to `ping 10.22.249.203`
+      * From container: `docker exec -it peer1 ping 10.22.249.100`
