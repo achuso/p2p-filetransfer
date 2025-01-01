@@ -1,9 +1,11 @@
 package p2p;
 
+import network.FileClient;
+import network.FileClient.SimpleFileInfo;
+
+import java.io.File;
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
+import java.net.*;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -49,11 +51,24 @@ public class PeerMgr {
                     String peerIP = response.getAddress().getHostAddress();
                     if (!peerIP.equals(selfIP) && !peerList.containsKey(peerIP)) {
                         System.out.println("Discovered peer: " + peerIP);
-                        addPeer(new Peer(peerIP, peerIP, 4113));
+
+                        // Create a new Peer object
+                        Peer newPeer = new Peer(peerIP, peerIP, 4113);
+                        addPeer(newPeer);
+
+                        // Request that peer’s shared files
+                        var sharedFiles = FileClient.requestSharedFiles(peerIP, 4113);
+                        for (SimpleFileInfo info : sharedFiles) {
+                            // Construct a File to store in newPeer
+                            File pseudoFile = new File(info.fileName);
+
+                            // Add to the peer’s known shared files
+                            newPeer.addSharedFile(pseudoFile);
+                        }
                     }
                 }
                 catch (IOException e) {
-                    System.out.println("Discovery timed out: " + e.getMessage());
+                    System.err.println("Discovery timed out: " + e.getMessage());
                     break;
                 }
             }
@@ -63,6 +78,11 @@ public class PeerMgr {
         }
     }
 
-    public Peer getPeer(String peerID) { return peerList.get(peerID); }
-    public Collection<Peer> getAllPeers() { return peerList.values(); }
+    public Peer getPeer(String peerID) {
+        return peerList.get(peerID);
+    }
+
+    public Collection<Peer> getAllPeers() {
+        return peerList.values();
+    }
 }

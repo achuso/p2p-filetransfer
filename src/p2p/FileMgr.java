@@ -1,11 +1,11 @@
 package p2p;
 
 import java.io.*;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 public class FileMgr {
+    // Keyed by fileHash
     private final Map<String, FileMetaData> sharedFiles;
     private final Map<String, FileMetaData> downloadingFiles;
 
@@ -15,37 +15,52 @@ public class FileMgr {
     }
 
     public void addSharedFile(File file) {
-        String filename = file.getName();
-        FileMetaData metadata = new FileMetaData(filename, file.length(), file);
-        sharedFiles.put(filename, metadata);
+        try {
+            if (!file.exists() || file.isDirectory()) return;
+
+            String fileHash = FileTransferMgr.calculateFileHash(file);
+
+            if (!sharedFiles.containsKey(fileHash)) {
+                FileMetaData metadata = new FileMetaData(file.getName(), file.length(), file, fileHash);
+                sharedFiles.put(fileHash, metadata);
+            }
+        }
+        catch (IOException | NoSuchAlgorithmException e) {
+            System.err.println(e.getMessage());
+        }
     }
 
     public void addDownloadingFile(FileMetaData fileMetadata) {
-        downloadingFiles.put(fileMetadata.getFileName(), fileMetadata);
+        downloadingFiles.put(fileMetadata.getFileHash(), fileMetadata);
     }
 
     public void refreshSharedFolder(File sharedFolder) {
         sharedFiles.clear();
-        for (File file : Objects.requireNonNull(sharedFolder.listFiles())) {
-            if (!file.isDirectory()) {
-                addSharedFile(file);
-            }
+        File[] files = sharedFolder.listFiles();
+        if (files == null) return;
+        for (File file : files) {
+            addSharedFile(file);
         }
     }
 
-    public void listSharedFiles() {
-        if (sharedFiles.isEmpty()) {
-            System.out.println("No files shared.");
-        }
-        else {
-            System.out.println("Shared files:");
-            for (String fileName : sharedFiles.keySet()) {
-                System.out.println("- " + fileName);
-            }
-        }
+    public List<FileMetaData> getSharedFiles() {
+        return new ArrayList<>(sharedFiles.values());
     }
 
-    public List<FileMetaData> getSharedFiles() { return new ArrayList<>(sharedFiles.values()); }
-    public Map<String, FileMetaData> getDownloadingFiles() { return downloadingFiles; }
-    public FileMetaData getFileMetaData(String fileName) { return sharedFiles.get(fileName); }
+    public Map<String, FileMetaData> getDownloadingFiles() {
+        return downloadingFiles;
+    }
+
+    public FileMetaData getFileMetaDataByHash(String fileHash) {
+        return sharedFiles.get(fileHash);
+    }
+
+    public FileMetaData findFileByName(String fileName) {
+        for (FileMetaData meta : sharedFiles.values()) {
+            if (meta.getFileName().equalsIgnoreCase(fileName)) {
+                return meta;
+            }
+        }
+        return null;
+    }
 }
