@@ -1,10 +1,12 @@
 package network;
 
+import p2p.FileTransferMgr;
 import p2p.Node;
 
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -27,34 +29,20 @@ public class FileServer implements Runnable {
             String fileName = input.readUTF();
             System.out.println("Request received for file: " + fileName);
 
-            File file = new File("/test/shared/" + fileName);
-            System.out.println("Checking file existence: " + file.getAbsolutePath() + ", Exists: " + file.exists());
-
+            File file = new File(node.getSharedFolder(), fileName);
             if (!file.exists()) {
                 output.writeUTF("ERROR: File not found");
-                System.err.println("ERROR: File not found: " + file.getAbsolutePath());
                 return;
             }
 
             output.writeUTF("OK");
-            System.out.println("File exists. Preparing to send: " + fileName);
 
-            long fileSize = file.length();
-            output.writeLong(fileSize);
-
-            try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file))) {
-                byte[] buffer = new byte[256 * 1024];
-                int bytesRead;
-                while ((bytesRead = bis.read(buffer)) != -1) {
-                    output.write(buffer, 0, bytesRead);
-                }
-            }
-
-            System.out.println("File transfer completed: " + fileName);
+            FileTransferMgr.sendFile(file, output);
+            System.out.println("File sent successfully: " + fileName);
 
         }
-        catch (IOException e) {
-            System.err.println("FileServer error: " + e.getMessage());
+        catch (IOException | NoSuchAlgorithmException e) {
+            System.out.println("Error: " + e.getMessage());
         }
     }
 
@@ -68,8 +56,8 @@ public class FileServer implements Runnable {
                 executor.submit(new FileServer(clientSocket, node));
             }
         }
-        catch (Exception e) {
-            System.out.println("Error starting server:" + e.getMessage());
+        catch (IOException e) {
+            System.err.println("Error: " + e.getMessage());
         }
     }
 }

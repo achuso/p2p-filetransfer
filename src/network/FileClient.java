@@ -1,53 +1,40 @@
 package network;
 
+import p2p.FileTransferMgr;
+
 import java.io.*;
 import java.net.*;
 
 public class FileClient {
     public static void downloadFile(String peerIP, int peerPort, String fileName, File destinationFolder) {
-        System.out.println("Connecting to peer: " + peerIP + ":" + peerPort);
-        System.out.println("Requesting file: " + fileName);
+        int attempts = 0;
+        while (attempts < FileTransferMgr.MAX_RETRIES) {
+            attempts++;
+            try (Socket socket = new Socket(peerIP, peerPort);
+                 DataInputStream input = new DataInputStream(socket.getInputStream());
+                 DataOutputStream output = new DataOutputStream(socket.getOutputStream())) {
 
-        try (Socket socket = new Socket(peerIP, peerPort);
-             DataInputStream input = new DataInputStream(socket.getInputStream());
-             DataOutputStream output = new DataOutputStream(socket.getOutputStream())) {
-
-            output.writeUTF(fileName); // Request the file
-            System.out.println("File request sent to: " + peerIP);
-
-            String response = input.readUTF();
-            System.out.println("Server response: " + response);
-
-            if ("ERROR: File not found".equals(response)) {
-                System.err.println("File not found on peer: " + peerIP);
-                return;
-            }
-
-            long fileSize = input.readLong();
-            System.out.println("File size: " + fileSize + " bytes. Starting download...");
-
-            if (!destinationFolder.exists()) {
-                destinationFolder.mkdirs();
-            }
-            File outputFile = new File(destinationFolder, fileName);
-
-            try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(outputFile))) {
-                byte[] buffer = new byte[256 * 1024];
-                long bytesReceived = 0;
-                int bytesRead;
-
-                while ((bytesRead = input.read(buffer)) != -1) {
-                    bos.write(buffer, 0, bytesRead);
-                    bytesReceived += bytesRead;
-                    System.out.printf("Progress: %.2f%%\r", (bytesReceived / (double) fileSize) * 100);
+                output.writeUTF(fileName);
+                String response = input.readUTF();
+                if ("ERROR: File not found".equals(response)) {
+                    System.err.println("File not found on peer: " + peerIP);
+                    return;
                 }
 
-                System.out.println("\nDownload complete: " + fileName);
+                String fileHash = input.readUTF(); // Read file hash
+                long fileSize = input.readLong(); // Read file size
+
+                FileTransferMgr.receiveFile(fileName, fileSize, destinationFolder, input, fileHash);
+                System.out.println("File downloaded successfully: " + fileName);
+                return;
+
             }
-        }
-        catch (IOException e) {
-            System.err.println("FileClient error: " + e.getMessage());
-            throw new RuntimeException("FileClient download failed: " + e.getMessage(), e);
+            catch (IOException e) {
+                System.err.println("Attempt " + attempts + " failed: " + e.getMessage());
+                if (attempts == FileTransferMgr.MAX_RETRIES) {
+                    System.err.println("Failed to download file after " + FileTransferMgr.MAX_RETRIES + " attempts.");
+                }
+            }
         }
     }
 }

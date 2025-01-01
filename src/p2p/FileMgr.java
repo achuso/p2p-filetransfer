@@ -1,6 +1,8 @@
 package p2p;
 
-import java.io.File;
+import java.io.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 public class FileMgr {
