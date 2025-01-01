@@ -25,3 +25,14 @@ docker network create \
 - **Gateway**: `10.22.249.1`
 - **Container IP Range**: `10.22.249.201` to `10.22.249.203`
 - **Host Macvlan IP**: `10.22.249.250`
+```
+### 2. Setup the Virtual Interface
+Create the virtual interface:
+```bash
+sudo ip link add macvlan0 link wlp0s20f3 type macvlan mode bridge
+````
+Assign a unique IP and start it:
+```bash
+sudo ip addr add 10.22.249.250/16 dev macvlan0
+udo ip link set macvlan0 up
+```
