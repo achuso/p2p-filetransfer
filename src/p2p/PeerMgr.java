@@ -31,7 +31,7 @@ public class PeerMgr {
         try (DatagramSocket socket = new DatagramSocket(selfPort)) {
             socket.setBroadcast(true);
             byte[] buffer = "DISCOVER_PEER".getBytes();
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName("192.168.1.255"), 4113);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName("10.22.255.255"), 4113);
             socket.send(packet);
             System.out.println("Discovery packet sent from: " + selfIP);
 
@@ -47,9 +47,8 @@ public class PeerMgr {
                         System.out.println("Discovered peer: " + peerIP);
                         addPeer(new Peer(peerIP, peerIP, 4113));
                     }
-                }
-                catch (Exception e) {
-                    System.out.println("Peer discovery timed out:" + e.getMessage());
+                } catch (Exception e) {
+                    System.out.println("Peer discovery timed out: " + e.getMessage());
                     break;
                 }
             }
