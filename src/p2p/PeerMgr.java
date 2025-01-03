@@ -33,12 +33,12 @@ public class PeerMgr {
         try (DatagramSocket socket = new DatagramSocket(selfPort, InetAddress.getByName("0.0.0.0"))) {
             socket.setReuseAddress(true);
             socket.setBroadcast(true);
-            byte[] buffer = "DISCOVER_PEER".getBytes();
 
+            byte[] buffer = "DISCOVER_PEER".getBytes();
             InetAddress broadcastAddress = InetAddress.getByName("10.22.249.255");
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length, broadcastAddress, 4113);
             socket.send(packet);
-            System.out.println("[PeerMgr] Discovery packet sent.");
+            System.out.println("[PeerMgr] UDP flood => broadcasted 'DISCOVER_PEER' to " + broadcastAddress);
 
             socket.setSoTimeout(5000);
             while (true) {
@@ -52,20 +52,20 @@ public class PeerMgr {
                         Peer newPeer = new Peer(discoveredIP, discoveredIP, 4113);
                         addPeer(newPeer);
 
-                        // fetch that peer's file list
+                        // get that peer's file list
                         var sharedFiles = FileClient.requestSharedFiles(discoveredIP, 4113);
                         System.out.println("[PeerMgr] " + discoveredIP + " returned "
                                 + sharedFiles.size() + " files.");
 
+                        // store them as "hash_filename"
                         for (SimpleFileInfo info : sharedFiles) {
-                            // store as "hash_filename"
                             File pseudoFile = new File(info.fileHash + "_" + info.fileName);
                             newPeer.addSharedFile(pseudoFile);
                         }
                     }
                 }
                 catch (SocketTimeoutException e) {
-                    System.out.println("[PeerMgr] Discovery timed out => " + e.getMessage());
+                    System.out.println("[PeerMgr] UDP flood => discovery timed out => " + e.getMessage());
                     break;
                 }
             }
@@ -75,11 +75,7 @@ public class PeerMgr {
         }
     }
 
-    public Peer getPeer(String peerID) {
-        return peerList.get(peerID);
-    }
+    public Peer getPeer(String peerID)      { return peerList.get(peerID); }
 
-    public Collection<Peer> getAllPeers() {
-        return peerList.values();
-    }
+    public Collection<Peer> getAllPeers()   { return peerList.values(); }
 }

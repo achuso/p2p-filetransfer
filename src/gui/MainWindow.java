@@ -21,7 +21,7 @@ public class MainWindow extends JFrame {
 
         final TopPanel topPanel = new TopPanel(node);
         final CenterPanel centerPanel = new CenterPanel();
-        final BottomPanel bottomPanel = new BottomPanel();
+        final BottomPanel bottomPanel = new BottomPanel(node);
 
         // Container for padding purposes
         JPanel container = new JPanel(new BorderLayout(10, 10));
@@ -42,20 +42,24 @@ public class MainWindow extends JFrame {
         setJMenuBar(new MenuBar(this, node));
     }
 
-    // Optional if you want direct Connect/Disconnect from here (you currently do it in MenuBar):
     private void handleConnect() {
         System.out.println("[GUI] handleConnect() invoked in MainWindow.");
-        System.out.println("[GUI] Node sharedFolder: " + (node.getSharedFolder() == null ? "null" : node.getSharedFolder()));
-        System.out.println("[GUI] Node downloadFolder: " + (node.getDownloadFolder() == null ? "null" : node.getDownloadFolder()));
+        System.out.println(
+                "[GUI] Node sharedFolder: " + (node.getSharedFolder() == null ? "null" : node.getSharedFolder()));
+        System.out.println(
+                "[GUI] Node downloadFolder: " + (node.getDownloadFolder() == null ? "null" : node.getDownloadFolder()));
 
         try {
             node.startServer();
             node.startPeerDiscovery();
             node.startFileSharing();
-            JOptionPane.showMessageDialog(this, "Connected to P2P network.", "Success", JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Failed to connect: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Connected to P2P network.",
+                    "Success", JOptionPane.INFORMATION_MESSAGE);
+        }
+        catch (Exception e) {
+            System.err.println(e.getMessage());
+            JOptionPane.showMessageDialog(this, "Failed to connect: "
+                    + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -64,10 +68,13 @@ public class MainWindow extends JFrame {
         try {
             node.stopPeerDiscovery();
             node.stopFileSharing();
-            JOptionPane.showMessageDialog(this, "Disconnected from P2P network.", "Success", JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Failed to disconnect: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Disconnected from P2P network.",
+                    "Success", JOptionPane.INFORMATION_MESSAGE);
+        }
+        catch (Exception e) {
+            System.err.println(e.getMessage());
+            JOptionPane.showMessageDialog(this, "Failed to disconnect: "
+                    + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 }

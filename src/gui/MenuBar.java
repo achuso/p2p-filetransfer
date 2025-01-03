@@ -6,21 +6,23 @@ import javax.swing.*;
 
 public class MenuBar extends JMenuBar {
     private final Node node;
+    private final JFrame parentFrame;
 
     public MenuBar(JFrame parentFrame, Node node) {
+        this.parentFrame = parentFrame;
         this.node = node;
 
         JMenu fileMenu = new JMenu("File");
 
         JMenuItem connectItem = new JMenuItem("Connect");
-        connectItem.addActionListener(event -> handleConnect(parentFrame));
+        connectItem.addActionListener(e -> handleConnect());
 
         JMenuItem disconnectItem = new JMenuItem("Disconnect");
-        disconnectItem.addActionListener(event -> handleDisconnect(parentFrame));
+        disconnectItem.addActionListener(e -> handleDisconnect());
 
         JMenuItem exitItem = new JMenuItem("Exit");
-        exitItem.addActionListener(event -> {
-            System.out.println("[GUI] Exiting application.");
+        exitItem.addActionListener(e -> {
+            System.out.println("[MenuBar] Exiting...");
             System.exit(0);
         });
 
@@ -33,13 +35,16 @@ public class MenuBar extends JMenuBar {
 
         JMenu helpMenu = new JMenu("Help");
         JMenuItem aboutItem = new JMenuItem("About");
-        aboutItem.addActionListener(event -> JOptionPane.showMessageDialog(
+        aboutItem.addActionListener(e -> JOptionPane.showMessageDialog(
                 parentFrame,
-                "CSE471 Term Project\n" +
-                        "P2P File Sharing Application\n\n" +
-                        "Name: Onat Ribar\n" +
-                        "Student ID: 20210702099",
-                    "About",
+                "P2P File Sharing Application\n\n" +
+                        "Enhancements:\n" +
+                        " - Docker or GUI\n" +
+                        " - Chunk-based multi-source\n" +
+                        " - Active downloads at 100%\n" +
+                        " - Unified 'found' listing\n" +
+                        " - Basic search\n",
+                "About",
                 JOptionPane.INFORMATION_MESSAGE
         ));
         helpMenu.add(aboutItem);
@@ -47,43 +52,46 @@ public class MenuBar extends JMenuBar {
         add(helpMenu);
     }
 
-    private void handleConnect(JFrame parentFrame) {
+    private void handleConnect() {
         try {
-            System.out.println("[GUI:MenuBar] handleConnect() clicked.");
-            System.out.println(" - Node sharedFolder = " + (node.getSharedFolder() == null ? "null" : node.getSharedFolder().getAbsolutePath()));
-            System.out.println(" - Node downloadFolder = " + (node.getDownloadFolder() == null ? "null" : node.getDownloadFolder().getAbsolutePath()));
-
+            System.out.println("[MenuBar] handleConnect invoked.");
             node.startServer();
-            System.out.println("[GUI:MenuBar] startServer() called.");
             node.startPeerDiscovery();
-            System.out.println("[GUI:MenuBar] startPeerDiscovery() called.");
             node.startFileSharing();
-            System.out.println("[GUI:MenuBar] startFileSharing() called.");
+            node.startLocalFolderMonitor(); // if Docker
 
-            JOptionPane.showMessageDialog(parentFrame, "Connected to P2P network.", "Success", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(parentFrame,
+                    "Connected to P2P network.",
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
         }
         catch (Exception e) {
-            System.err.println("[GUI:MenuBar] handleConnect() failed: " + e.getMessage());
-            System.err.println(e.getMessage());
-            JOptionPane.showMessageDialog(parentFrame, "Failed to connect: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            System.err.print(e.getMessage());
+            JOptionPane.showMessageDialog(parentFrame,
+                    "Failed to connect: " + e.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private void handleDisconnect(JFrame parentFrame) {
+    private void handleDisconnect() {
         try {
-            System.out.println("[GUI:MenuBar] handleDisconnect() clicked.");
-
+            System.out.println("[MenuBar] handleDisconnect invoked.");
             node.stopPeerDiscovery();
-            System.out.println("[GUI:MenuBar] stopPeerDiscovery() called.");
             node.stopFileSharing();
-            System.out.println("[GUI:MenuBar] stopFileSharing() called.");
+            node.stopLocalFolderMonitor();
 
-            JOptionPane.showMessageDialog(parentFrame, "Disconnected from P2P network.", "Success", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(parentFrame,
+                    "Disconnected from P2P network.",
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
         }
         catch (Exception e) {
-            System.err.println("[GUI:MenuBar] handleDisconnect() failed: " + e.getMessage());
             e.printStackTrace();
-            JOptionPane.showMessageDialog(parentFrame, "Failed to disconnect: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(parentFrame,
+                    "Failed to disconnect: " + e.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 }
