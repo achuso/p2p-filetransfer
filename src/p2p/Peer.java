@@ -10,12 +10,12 @@ public class Peer {
     private final String peerID;
     private final String ip;
     private final int port;
+
     private final List<File> sharedFiles;
     private final List<File> downloadedFiles;
 
-    // Filters
     private final Set<File> excludedFolders;
-    private final Set<String> excludedFileMasks;
+    private final Set<String> excludedMasks;
 
     public Peer(String peerID, String ip, int port) {
         this.peerID = peerID;
@@ -24,45 +24,28 @@ public class Peer {
         this.sharedFiles = new ArrayList<>();
         this.downloadedFiles = new ArrayList<>();
         this.excludedFolders = new HashSet<>();
-        this.excludedFileMasks = new HashSet<>();
+        this.excludedMasks = new HashSet<>();
     }
 
     public void addSharedFile(File file) {
         if (isExcluded(file)) {
-            System.out.println("File excluded: " + file.getName());
+            System.out.println("[Peer] Excluded => " + file.getName());
             return;
         }
         sharedFiles.add(file);
     }
 
-    public void addDownloadedFile(File file) {
-        downloadedFiles.add(file);
-    }
-
-    // Filters
-    public void excludeFolder(File folder) {
-        excludedFolders.add(folder);
-    }
-
-    public void excludeFileMask(String mask) {
-        excludedFileMasks.add(mask);
-    }
-
-    private boolean isExcluded(File file) {
-        // Check for excluded folders
+    private boolean isExcluded(File f) {
         for (File folder : excludedFolders) {
-            if (file.getAbsolutePath().startsWith(folder.getAbsolutePath())) {
+            if (f.getAbsolutePath().startsWith(folder.getAbsolutePath())) {
                 return true;
             }
         }
-
-        // Check for excluded file mask
-        for (String mask : excludedFileMasks) {
-            if (matchesMask(file.getName(), mask)) {
+        for (String mask : excludedMasks) {
+            if (matchesMask(f.getName(), mask)) {
                 return true;
             }
         }
-
         return false;
     }
 
@@ -71,10 +54,22 @@ public class Peer {
         return fileName.matches(regex);
     }
 
-    // Getters
-    public String getPeerID() { return peerID; }
-    public String getIP() { return ip; }
-    public int getPort() { return port; }
-    public List<File> getSharedFiles() { return sharedFiles; }
-    public List<File> getDownloadedFiles() { return downloadedFiles; }
+    public void excludeFolder(File folder) {
+        excludedFolders.add(folder);
+    }
+
+    public void excludeMask(String mask) {
+        excludedMasks.add(mask);
+    }
+
+    public void addDownloadedFile(File file) {
+        downloadedFiles.add(file);
+    }
+
+    public String getPeerID()   { return peerID; }
+    public String getIP()       { return ip; }
+    public int getPort()        { return port; }
+
+    public List<File> getSharedFiles()      { return sharedFiles; }
+    public List<File> getDownloadedFiles()  { return downloadedFiles; }
 }

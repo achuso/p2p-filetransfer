@@ -9,23 +9,22 @@ public class FileMetaData {
     private final long fileSize;
     private final File file;
     private final String fileHash;
-    private final List<Peer> peersWithFile;
+
+    private final List<Peer> owners;
 
     public FileMetaData(String fileName, long fileSize, File file, String fileHash) {
         this.fileName = fileName;
         this.fileSize = fileSize;
         this.file = file;
         this.fileHash = fileHash;
-        this.peersWithFile = new ArrayList<>();
+        this.owners = new ArrayList<>();
     }
 
-    public void addOwnerPeer(Peer peer) {
-        peersWithFile.add(peer);
-    }
+    public String getFileName()         { return fileName; }
+    public long getFileSize()           { return fileSize; }
+    public File getFile()               { return file; }
+    public String getFileHash()         { return fileHash; }
 
-    public String getFileName() { return fileName; }
-    public long getFileSize()   { return fileSize; }
-    public File getFile()       { return file; }
-    public String getFileHash() { return fileHash; }
-    public List<Peer> getPeersWithFile() { return peersWithFile; }
+    public List<Peer> getOwners()       { return owners; }
+    public void addOwnerPeer(Peer p)    { owners.add(p); }
 }

@@ -2,13 +2,11 @@ package network;
 
 import p2p.FileMgr;
 import p2p.FileMetaData;
-import p2p.FileTransferMgr;
 import p2p.Node;
 
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -23,138 +21,108 @@ public class FileServer implements Runnable {
 
     @Override
     public void run() {
-        try (DataInputStream input = new DataInputStream(socket.getInputStream());
-             DataOutputStream output = new DataOutputStream(socket.getOutputStream())) {
+        try (DataInputStream in = new DataInputStream(socket.getInputStream());
+             DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
 
-            System.out.println("New connection from: " + socket.getInetAddress());
-            String command = input.readUTF();
+            String command = in.readUTF();
+            System.out.println("[FileServer] command => " + command
+                    + " from " + socket.getInetAddress());
 
-            // To accommodate for my legacy code rn
             switch (command) {
-            case "REQUEST_FILE_BY_NAME":
-                handleRequestFileByName(input, output);
+            case "LIST_SHARED_FILES":
+                handleListSharedFiles(out);
+                break;
+            case "REQUEST_FILE_SIZE_BY_HASH":
+                handleFileSizeByHash(in, out);
                 break;
             case "REQUEST_CHUNK":
-                handleRequestChunk(input, output);
-                break;
-            case "LIST_SHARED_FILES":
-                handleListSharedFiles(output);
+                handleRequestChunk(in, out);
                 break;
             default:
-                output.writeUTF("ERROR: Unknown command");
+                out.writeUTF("ERROR: Unknown command");
             }
         }
         catch (IOException e) {
-            System.err.println(e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    // Old approach
-    private void handleRequestFileByName(DataInputStream input, DataOutputStream output) throws IOException {
-        String requestedName = input.readUTF();
-        System.out.println("Peer requested file by name: " + requestedName);
-
+    private void handleListSharedFiles(DataOutputStream out) throws IOException {
         FileMgr fileMgr = node.getFileManager();
         if (fileMgr == null) {
-            output.writeUTF("ERROR: Node file manager not found");
+            out.writeUTF("ERROR: Node file manager not found");
             return;
         }
 
-        FileMetaData meta = fileMgr.findFileByName(requestedName);
-        if (meta == null) {
-            output.writeUTF("ERROR: File not found");
-            return;
-        }
+        out.writeUTF("OK");
+        var sharedFiles = fileMgr.getSharedFiles();
+        System.out.println("[FileServer] handleListSharedFiles => "
+                + sharedFiles.size() + " file(s) to " + socket.getInetAddress());
+        out.writeInt(sharedFiles.size());
 
-        // File obtained, indicate success!
-        output.writeUTF("OK");
-
-        // Send the file hash + file size, then the file itself
-        File file = meta.getFile();
-        try {
-            String fileHash = FileTransferMgr.calculateFileHash(file);
-            long fileSize = file.length();
-
-            output.writeUTF(fileHash);
-            output.writeLong(fileSize);
-
-            // Send the file data
-            try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file))) {
-                byte[] buffer = new byte[256 * 1024];
-                int bytesRead;
-                while ((bytesRead = bis.read(buffer)) != -1) {
-                    output.write(buffer, 0, bytesRead);
-                }
-            }
-            System.out.println("File sent successfully: " + requestedName);
-
-        }
-        catch (NoSuchAlgorithmException e) {
-            output.writeUTF("ERROR: Hash error " + e.getMessage());
+        for (FileMetaData meta : sharedFiles) {
+            out.writeUTF(meta.getFileHash());
+            out.writeUTF(meta.getFileName());
+            out.writeLong(meta.getFileSize());
         }
     }
 
-    private void handleRequestChunk(DataInputStream input, DataOutputStream output) throws IOException {
-        String fileHash = input.readUTF();
-        long offset = input.readLong();
-        long chunkSize = input.readLong();
-
+    private void handleFileSizeByHash(DataInputStream in, DataOutputStream out) throws IOException {
+        String fileHash = in.readUTF();
         FileMgr fileMgr = node.getFileManager();
         if (fileMgr == null) {
-            output.writeUTF("ERROR: Node file manager not found");
+            out.writeUTF("ERROR: Node file manager not found");
             return;
         }
 
-        // Look up the file by hash in the Node’s FileMgr
         FileMetaData meta = fileMgr.getFileMetaDataByHash(fileHash);
-        if (meta == null) {
-            output.writeUTF("ERROR: File not found");
+        if (meta == null || meta.getFile() == null || !meta.getFile().exists()) {
+            System.out.println("[FileServer] handleFileSizeByHash => no meta for " + fileHash);
+            out.writeUTF("ERROR: File not found");
             return;
         }
 
-        File file = meta.getFile();
-        if (!file.exists()) {
-            output.writeUTF("ERROR: File not found on disk");
+        out.writeUTF("OK");
+        out.writeLong(meta.getFile().length());
+    }
+
+    private void handleRequestChunk(DataInputStream in, DataOutputStream out) throws IOException {
+        String fileHash = in.readUTF();
+        long offset = in.readLong();
+        long chunkSize = in.readLong();
+
+        FileMgr fileMgr = node.getFileManager();
+        if (fileMgr == null) {
+            out.writeUTF("ERROR: Node file manager not found");
             return;
         }
 
-        output.writeUTF("OK"); // proceed yo
+        FileMetaData meta = fileMgr.getFileMetaDataByHash(fileHash);
+        if (meta == null || meta.getFile() == null || !meta.getFile().exists()) {
+            System.out.println("[FileServer] handleRequestChunk => no meta for " + fileHash);
+            out.writeUTF("ERROR: File not found");
+            return;
+        }
 
-        // Send that chunk (offset..offset+chunkSize-1)
-        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+        out.writeUTF("OK");
+
+        try (RandomAccessFile raf = new RandomAccessFile(meta.getFile(), "r")) {
             raf.seek(offset);
             byte[] buffer = new byte[256 * 1024];
             long bytesRemaining = chunkSize;
             int bytesRead;
             while (bytesRemaining > 0 &&
                     (bytesRead = raf.read(buffer, 0, (int)Math.min(buffer.length, bytesRemaining))) != -1) {
-                output.write(buffer, 0, bytesRead);
+                out.write(buffer, 0, bytesRead);
                 bytesRemaining -= bytesRead;
             }
-        }
-    }
-
-    private void handleListSharedFiles(DataOutputStream output) throws IOException {
-        FileMgr fileMgr = node.getFileManager();
-        if (fileMgr == null) {
-            output.writeUTF("ERROR: Node file manager not found");
-            return;
-        }
-
-        var sharedFiles = fileMgr.getSharedFiles();
-        output.writeUTF("OK");
-        output.writeInt(sharedFiles.size());
-
-        for (FileMetaData meta : sharedFiles) {
-            output.writeUTF(meta.getFileName());
-            output.writeLong(meta.getFileSize());
         }
     }
 
     public static void startServer(int port, Node node) {
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             ExecutorService executor = Executors.newCachedThreadPool();
-            System.out.println("FileServer started on port " + port);
+            System.out.println("[FileServer] started on port " + port);
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
@@ -162,7 +130,7 @@ public class FileServer implements Runnable {
             }
         }
         catch (IOException e) {
-            System.err.println("Error: " + e.getMessage());
+            System.err.println("[FileServer] Error => " + e.getMessage());
         }
     }
 }

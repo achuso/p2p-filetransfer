@@ -1,10 +1,10 @@
 package p2p;
 
-import network.FileClient;
 import network.FileServer;
 
 import java.io.*;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -18,86 +18,116 @@ public class Node {
 
     private volatile boolean keepDiscovering = true;
     private volatile boolean keepSharing = true;
+    private volatile boolean keepMonitoringFolder = false; // for auto-refresh
 
-    public Node(String peerID, String ip, int port, boolean isDockerInstance) {
+    private final boolean isDockerMode;
+
+    public Node(String peerID, String ip, int port, boolean isDocker) {
+        System.out.println("[Node] Constructor => peerID=" + peerID
+                + ", ip=" + ip + ", port=" + port
+                + ", isDocker=" + isDocker);
+
         this.self = new Peer(peerID, ip, port);
         this.peerMgr = new PeerMgr();
         this.fileMgr = new FileMgr();
+        this.isDockerMode = isDocker;
 
-        if (isDockerInstance) {
+        if (isDocker) {
+            // container dirs: /test/shared and /test/downloads
             this.sharedFolder = new File("/test/shared");
             this.downloadFolder = new File("/test/downloads");
-            fileMgr.refreshSharedFolder(this.sharedFolder);
-            System.out.println("Number of local shared files: " + fileMgr.getSharedFiles().size());
 
-            if (this.sharedFolder.isDirectory()) {
-                fileMgr.refreshSharedFolder(this.sharedFolder);
-                File[] files = this.sharedFolder.listFiles();
+            System.out.println("[Node] Docker => Checking /test/shared & /test/downloads...");
+            sharedFolder.mkdirs();
+            downloadFolder.mkdirs();
+
+            if (sharedFolder.isDirectory()) {
+                fileMgr.refreshSharedFolder(sharedFolder);
+                File[] files = sharedFolder.listFiles();
                 if (files != null) {
                     for (File f : files) {
                         if (f.isFile()) {
                             self.addSharedFile(f);
+                            System.out.println("[Node] Docker added => " + f.getName());
                         }
                     }
                 }
+                System.out.println("[Node] After initial refresh => "
+                        + fileMgr.getSharedFiles().size() + " shared file(s).");
             }
         }
         else {
             // GUI mode
+            System.out.println("[Node] Non-Docker => user sets folders via setSharedFolder(...) etc.");
             this.sharedFolder = null;
             this.downloadFolder = null;
         }
+        System.out.println("[Node] Constructor done.\n");
     }
 
-    // Start a TCP server to serve file requests (multithreaded)
     public void startServer() {
+        System.out.println("[Node] startServer() called.");
         new Thread(() -> FileServer.startServer(self.getPort(), this)).start();
     }
 
     public void startPeerDiscovery() {
-        Thread discoveryThread = new Thread(() -> {
+        System.out.println("[Node] startPeerDiscovery() called.");
+        Thread discThread = new Thread(() -> {
             while (keepDiscovering) {
                 try {
                     peerMgr.clearPeers();
-                    // Use broadcast discovery
                     peerMgr.discoverPeers(self.getIP(), self.getPort());
-
-                    // Sleep 5 seconds, then attempt again
                     Thread.sleep(5000);
-                } catch (InterruptedException e) {
-                    System.out.println("Peer discovery interrupted.");
+                }
+                catch (InterruptedException e) {
+                    System.out.println("[Node] Peer discovery interrupted.");
                     Thread.currentThread().interrupt();
-                } catch (Exception e) {
-                    System.err.println("Error during peer discovery: " + e.getMessage());
+                }
+                catch (Exception e) {
+                    System.err.println(e.getMessage());
                 }
             }
         });
-        discoveryThread.setDaemon(true);
-        discoveryThread.start();
+        discThread.setDaemon(true);
+        discThread.start();
     }
 
     public void stopPeerDiscovery() {
+        System.out.println("[Node] stopPeerDiscovery() called.");
         keepDiscovering = false;
     }
 
     public void startFileSharing() {
+        System.out.println("[Node] startFileSharing() called.");
         Thread sharingThread = new Thread(() -> {
             while (keepSharing) {
                 try {
                     for (Peer peer : peerMgr.getAllPeers()) {
-                        for (File file : peer.getSharedFiles()) {
-                            FileMetaData fileMetaData = fileMgr.findFileByName(file.getName());
-                            if (fileMetaData == null) {
-                                System.out.println("Detected new file from " + peer.getPeerID() + ": " + file.getName());
-                                downloadFileFromPeer(peer.getIP(), peer.getPort(), file.getName());
+                        for (File pseudoFile : peer.getSharedFiles()) {
+                            String combined = pseudoFile.getName();
+                            int idx = combined.indexOf('_');
+                            if (idx < 0) {
+                                continue;
                             }
+                            String fileHash = combined.substring(0, idx);
+                            String fileName = combined.substring(idx + 1);
+
+                            if (fileMgr.getFileMetaDataByHash(fileHash) != null) {
+                                continue; // already have it
+                            }
+                            System.out.println("[Node] Detected new file from "
+                                    + peer.getPeerID() + ": " + fileName
+                                    + " (hash=" + fileHash + ")");
+
+                            // now do chunk-based from only the real owners
+                            multiSourceDownload(fileHash, fileName);
                         }
                     }
-                    Thread.sleep(5000); // check every 5 seconds
+                    Thread.sleep(5000);
                 }
                 catch (InterruptedException e) {
-                    System.out.println("File sharing interrupted.");
-                    break;
+                    System.out.println("[Node] File sharing thread interrupted.");
+                    Thread.currentThread().interrupt();
                 }
             }
         });
@@ -106,171 +136,216 @@ public class Node {
     }
 
     public void stopFileSharing() {
+        System.out.println("[Node] stopFileSharing() called.");
         keepSharing = false;
     }
 
-    // Old method for now, makes me feel safe...
-    public void downloadFileFromPeer(String peerIP, int peerPort, String fileName) {
-        System.out.println("Attempting single-source download: " + fileName + " from peer: " + peerIP);
-        try {
-            FileClient.downloadFile(peerIP, peerPort, fileName, downloadFolder);
-            System.out.println("File downloaded successfully (single source): " + fileName);
+    public void startLocalFolderMonitor() {
+        if (!isDockerMode) {
+            System.out.println("[Node] startLocalFolderMonitor => skipping, not Docker mode.");
+            return;
         }
-        catch (Exception e) {
-            System.err.println("Error during file download: " + e.getMessage());
+        if (sharedFolder == null || !sharedFolder.isDirectory()) {
+            System.out.println("[Node] startLocalFolderMonitor => no valid sharedFolder, skip");
+            return;
         }
+        System.out.println("[Node] startLocalFolderMonitor => enabling auto-refresh of " + sharedFolder);
+
+        keepMonitoringFolder = true;
+        Thread monitorThread = new Thread(() -> {
+            while (keepMonitoringFolder) {
+                try {
+                    Thread.sleep(5000);
+                    System.out.println("[Node] Auto-refreshing " + sharedFolder + " for new files...");
+                    fileMgr.refreshSharedFolder(sharedFolder);
+
+                    // Add them to 'self'
+                    File[] files = sharedFolder.listFiles();
+                    if (files != null) {
+                        for (File f : files) {
+                            if (f.isFile()) {
+                                self.addSharedFile(f);
+                            }
+                        }
+                    }
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+        monitorThread.setDaemon(true);
+        monitorThread.start();
     }
 
-    public void multiSourceDownload(String fileHash) {
-        FileMetaData meta = findFileMetaOnPeers(fileHash);
-        if (meta == null) {
-            System.err.println("No known metadata for file hash: " + fileHash);
-            return;
+    public void stopLocalFolderMonitor() {
+        keepMonitoringFolder = false;
+    }
+
+    public void multiSourceDownload(String fileHash, String fileName) {
+        System.out.println("[Node] multiSourceDownload(" + fileHash
+                + ", " + fileName + ") called.");
+
+        if (fileMgr.getFileMetaDataByHash(fileHash) == null) {
+            FileMetaData meta = new FileMetaData(fileName, 0, null, fileHash);
+            fileMgr.addDownloadingFile(meta);
         }
 
-        // Ensure that there's at least 1 owner peer
-        List<Peer> owners = meta.getPeersWithFile();
+        // find peers that own the hash
+        List<Peer> owners = getOwnersOfFile(fileHash);
         if (owners.isEmpty()) {
-            System.err.println("No peers own fileHash: " + fileHash);
+            System.err.println("[Node] No actual owners have " + fileHash);
             return;
         }
 
-        long fileSize = meta.getFileSize();
-        long chunkSize = 256L * 1024L; // 256 KB
-        long totalChunks = (fileSize + chunkSize - 1) / chunkSize; // ceiling division
-        System.out.println("Downloading " + totalChunks + " chunks from " + owners.size() + " peer(s).");
+        // get file size from any one owner
+        long fileSize = 0;
+        for (Peer p : owners) {
+            long size = network.FileClient.requestFileSizeByHash(p.getIP(), p.getPort(), fileHash);
+            if (size > 0) {
+                fileSize = size;
+                break;
+            }
+        }
+        if (fileSize <= 0) {
+            System.err.println("[Node] Could not retrieve file size => " + fileHash);
+            return;
+        }
 
-        // Temp folder for partial chunks
+        // chunk
+        long chunkSize = 256L * 1024L;
+        long totalChunks = (fileSize + chunkSize - 1) / chunkSize;
+
         File tempFolder = new File(downloadFolder, "temp_" + fileHash);
-        if (!tempFolder.exists()) tempFolder.mkdirs();
+        tempFolder.mkdirs();
 
-        // Roundrobin-like assessment of chunks
+        System.out.println("[Node] Will download " + totalChunks + " chunks => " + fileName);
+
         for (int i = 0; i < totalChunks; i++) {
             long offset = i * chunkSize;
-            long sizeForThisChunk = Math.min(chunkSize, fileSize - offset);
+            long csize = Math.min(chunkSize, fileSize - offset);
 
-            Peer chosenPeer = owners.get(i % owners.size()); // simple round-robin
-
+            // round-robin over actual owners
+            Peer chosenPeer = owners.get(i % owners.size());
             File chunkFile = new File(tempFolder, "chunk_" + i);
 
-            System.out.printf("Downloading chunk %d/%d from %s (offset=%d, size=%d)%n",
-                    i + 1, totalChunks, chosenPeer.getPeerID(), offset, sizeForThisChunk);
+            System.out.println("[Node] chunk " + i + " from " + chosenPeer.getPeerID()
+                    + " offset=" + offset + " size=" + csize);
 
-            boolean success = FileClient.downloadChunk(
+            boolean success = network.FileClient.downloadChunk(
                     chosenPeer.getIP(), chosenPeer.getPort(),
-                    fileHash, offset, sizeForThisChunk,
+                    fileHash, offset, csize,
                     chunkFile
             );
             if (!success) {
-                System.err.println("Failed downloading chunk " + i + " from peer " + chosenPeer.getPeerID());
+                System.err.println("[Node] chunk " + i
+                        + " failed from " + chosenPeer.getPeerID());
             }
         }
 
-        // After all chunks, avengers reassemble
-        reassembleFile(meta.getFileName(), fileHash, fileSize, tempFolder);
+        reassembleChunks(fileHash, fileName, fileSize, tempFolder);
     }
 
-    private void reassembleFile(String fileName, String fileHash, long fileSize, File tempFolder) {
+    private List<Peer> getOwnersOfFile(String fileHash) {
+        List<Peer> owners = new ArrayList<>();
+        for (Peer p : peerMgr.getAllPeers()) {
+            boolean hasIt = p.getSharedFiles().stream()
+                    .anyMatch(ff -> ff.getName().startsWith(fileHash + "_"));
+            if (hasIt) {
+                owners.add(p);
+            }
+        }
+        return owners;
+    }
+
+    private void reassembleChunks(String fileHash, String fileName,
+                                  long fileSize, File tempFolder) {
         File finalFile = new File(downloadFolder, fileName);
         long bytesWritten = 0;
         int chunkIndex = 0;
 
+        System.out.println("[Node] Reassembling => " + finalFile.getAbsolutePath());
         try (FileOutputStream fos = new FileOutputStream(finalFile)) {
             while (bytesWritten < fileSize) {
-                File chunkFile = new File(tempFolder, "chunk_" + chunkIndex);
-                if (!chunkFile.exists()) {
-                    throw new IOException("Missing chunk: " + chunkFile.getAbsolutePath());
+                File cf = new File(tempFolder, "chunk_" + chunkIndex);
+                if (!cf.exists()) {
+                    throw new IOException("Missing chunk => " + cf.getAbsolutePath());
                 }
-
-                try (FileInputStream fis = new FileInputStream(chunkFile)) {
+                try (FileInputStream fis = new FileInputStream(cf)) {
                     byte[] buffer = new byte[256 * 1024];
-                    int bytesRead;
-                    while ((bytesRead = fis.read(buffer)) != -1) {
-                        fos.write(buffer, 0, bytesRead);
-                        bytesWritten += bytesRead;
+                    int read;
+                    while ((read = fis.read(buffer)) != -1) {
+                        fos.write(buffer, 0, read);
+                        bytesWritten += read;
                     }
                 }
                 chunkIndex++;
             }
         }
         catch (IOException e) {
-            System.err.println(e.getMessage());
-            System.err.println("Error reassembling file: " + fileName);
+            System.err.println("[Node] reassembleChunks error => " + e.getMessage());
+            e.printStackTrace();
             return;
         }
 
-        // Verify final hash
+        // verify final
         try {
-            String calculatedHash = FileTransferMgr.calculateFileHash(finalFile);
-            if (!calculatedHash.equals(fileHash)) {
-                System.err.println("File integrity check failed. Expected: "
-                        + fileHash + ", Found: " + calculatedHash);
-            }
-            else {
-                System.out.println("File reassembled successfully: " + fileName);
+            String calcHash = FileTransferMgr.calculateFileHash(finalFile);
+            if (!calcHash.equals(fileHash)) {
+                System.err.println("[Node] Hash mismatch => expected="
+                        + fileHash + ", got=" + calcHash);
+            } else {
+                System.out.println("[Node] File reassembled successfully => " + fileName);
             }
         }
         catch (IOException | NoSuchAlgorithmException e) {
-            System.err.println("Error reassembling file: " + fileName);
+            System.err.println(e.getMessage());
         }
 
-        // Cleanup partial chunks
-        File[] chunkFiles = tempFolder.listFiles();
-        if (chunkFiles != null) {
-            for (File f : chunkFiles) {
+        // cleanup
+        File[] leftover = tempFolder.listFiles();
+        if (leftover != null) {
+            for (File f : leftover) {
                 f.delete();
             }
         }
         tempFolder.delete();
     }
 
-    private FileMetaData findFileMetaOnPeers(String fileHash) {
-        // Check local FileMgr
-        FileMetaData local = fileMgr.getFileMetaDataByHash(fileHash);
-        if (local != null) {
-            local.addOwnerPeer(self);
-        }
-
-        return local;
-    }
-
     public void setSharedFolder(String path) {
-        File newFolder = new File(path);
-        if (!newFolder.exists() || !newFolder.isDirectory()) {
-            throw new IllegalArgumentException("Invalid shared folder: " + path);
+        System.out.println("[Node] setSharedFolder(" + path + ")");
+        File sf = new File(path);
+        if (!sf.exists() || !sf.isDirectory()) {
+            throw new IllegalArgumentException("Invalid shared folder => " + path);
         }
-        this.sharedFolder = newFolder;
-        System.out.println("Shared folder set to: " + sharedFolder.getAbsolutePath());
+        this.sharedFolder = sf;
+        fileMgr.refreshSharedFolder(sf);
 
-        // Refresh Node's FileMgr
-        fileMgr.refreshSharedFolder(sharedFolder);
-
-        // Also add them to the object
-        File[] files = newFolder.listFiles();
+        File[] files = sf.listFiles();
         if (files != null) {
             for (File f : files) {
                 if (f.isFile()) {
                     self.addSharedFile(f);
+                    System.out.println("[Node] GUI added => " + f.getName());
                 }
             }
         }
+        System.out.println("[Node] Now " + fileMgr.getSharedFiles().size()
+                + " total shared file(s).");
     }
 
     public void setDownloadFolder(String path) {
-        File newFolder = new File(path);
-        if (!newFolder.exists()) {
-            if (!newFolder.mkdirs()) {
-                throw new IllegalArgumentException("Failed to create download folder: " + path);
-            }
-        }
-        this.downloadFolder = newFolder;
-        System.out.println("Download folder set to: " + downloadFolder.getAbsolutePath());
+        System.out.println("[Node] setDownloadFolder(" + path + ")");
+        File df = new File(path);
+        df.mkdirs();
+        this.downloadFolder = df;
+        System.out.println("[Node] Download folder => " + df.getAbsolutePath());
     }
 
-    public PeerMgr getPeerManager() { return peerMgr; }
-    public Collection<Peer> getDiscoveredPeers() { return peerMgr.getAllPeers(); }
-    public Peer getSelf() { return self; }
-    public FileMgr getFileManager() { return fileMgr; }
-    public File getDownloadFolder() { return downloadFolder; }
-    public File getSharedFolder() { return sharedFolder; }
+    public File getSharedFolder()           { return sharedFolder; }
+    public File getDownloadFolder()         { return downloadFolder; }
+    public PeerMgr getPeerManager()         { return peerMgr; }
+    public Collection<Peer> getAllPeers()   { return peerMgr.getAllPeers(); }
+    public Peer getSelf()                   { return self; }
+    public FileMgr getFileManager()         { return fileMgr; }
 }

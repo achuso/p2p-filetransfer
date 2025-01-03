@@ -19,13 +19,13 @@ public class PeerMgr {
 
     public void clearPeers() {
         peerList.clear();
-        System.out.println("Cleared peer list.");
+        System.out.println("[PeerMgr] Cleared peer list.");
     }
 
     public void addPeer(Peer peer) {
         if (!peerList.containsKey(peer.getPeerID())) {
             peerList.put(peer.getPeerID(), peer);
-            System.out.println("Added peer: " + peer.getPeerID());
+            System.out.println("[PeerMgr] Added peer => " + peer.getPeerID());
         }
     }
 
@@ -35,46 +35,43 @@ public class PeerMgr {
             socket.setBroadcast(true);
             byte[] buffer = "DISCOVER_PEER".getBytes();
 
-            // Broadcast to subnet
             InetAddress broadcastAddress = InetAddress.getByName("10.22.249.255");
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length, broadcastAddress, 4113);
             socket.send(packet);
-            System.out.println("Discovery packet sent.");
+            System.out.println("[PeerMgr] Discovery packet sent.");
 
-            // Receive responses
             socket.setSoTimeout(5000);
             while (true) {
                 try {
                     DatagramPacket response = new DatagramPacket(new byte[1024], 1024);
                     socket.receive(response);
 
-                    String peerIP = response.getAddress().getHostAddress();
-                    if (!peerIP.equals(selfIP) && !peerList.containsKey(peerIP)) {
-                        System.out.println("Discovered peer: " + peerIP);
-
-                        // Create a new Peer object
-                        Peer newPeer = new Peer(peerIP, peerIP, 4113);
+                    String discoveredIP = response.getAddress().getHostAddress();
+                    if (!discoveredIP.equals(selfIP) && !peerList.containsKey(discoveredIP)) {
+                        System.out.println("[PeerMgr] Discovered => " + discoveredIP);
+                        Peer newPeer = new Peer(discoveredIP, discoveredIP, 4113);
                         addPeer(newPeer);
 
-                        // Request that peer’s shared files
-                        var sharedFiles = FileClient.requestSharedFiles(peerIP, 4113);
-                        for (SimpleFileInfo info : sharedFiles) {
-                            // Construct a File to store in newPeer
-                            File pseudoFile = new File(info.fileName);
+                        // fetch that peer's file list
+                        var sharedFiles = FileClient.requestSharedFiles(discoveredIP, 4113);
+                        System.out.println("[PeerMgr] " + discoveredIP + " returned "
+                                + sharedFiles.size() + " files.");
 
-                            // Add to the peer’s known shared files
+                        for (SimpleFileInfo info : sharedFiles) {
+                            // store as "hash_filename"
+                            File pseudoFile = new File(info.fileHash + "_" + info.fileName);
                             newPeer.addSharedFile(pseudoFile);
                         }
                     }
                 }
-                catch (IOException e) {
-                    System.err.println("Discovery timed out: " + e.getMessage());
+                catch (SocketTimeoutException e) {
+                    System.out.println("[PeerMgr] Discovery timed out => " + e.getMessage());
                     break;
                 }
             }
         }
         catch (IOException e) {
-            System.err.println("Failed to discover peers: " + e.getMessage());
+            System.err.println("[PeerMgr] discoverPeers => " + e.getMessage());
         }
     }
 
