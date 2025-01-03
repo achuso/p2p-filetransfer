@@ -4,6 +4,10 @@ import p2p.Node;
 
 import javax.swing.*;
 
+/**
+ * MenuBar => has "Connect", "Disconnect", "Exit", "About".
+ * Now, "Disconnect" also calls node.stopServer() so no new downloads can happen after.
+ */
 public class MenuBar extends JMenuBar {
     private final Node node;
     private final JFrame parentFrame;
@@ -38,12 +42,11 @@ public class MenuBar extends JMenuBar {
         aboutItem.addActionListener(e -> JOptionPane.showMessageDialog(
                 parentFrame,
                 "P2P File Sharing Application\n\n" +
-                        "Enhancements:\n" +
-                        " - Docker or GUI\n" +
-                        " - Chunk-based multi-source\n" +
-                        " - Active downloads at 100%\n" +
-                        " - Unified 'found' listing\n" +
-                        " - Basic search\n",
+                        "Features:\n" +
+                        " - Double-click found files to download\n" +
+                        " - Auto-refresh local folder so new files are discovered\n" +
+                        " - 100% downloads remain in list\n" +
+                        " - Limited-scope UDP flooding for peer discovery\n",
                 "About",
                 JOptionPane.INFORMATION_MESSAGE
         ));
@@ -58,7 +61,7 @@ public class MenuBar extends JMenuBar {
             node.startServer();
             node.startPeerDiscovery();
             node.startFileSharing();
-            node.startLocalFolderMonitor(); // if Docker
+            node.startLocalFolderMonitor();
 
             JOptionPane.showMessageDialog(parentFrame,
                     "Connected to P2P network.",
@@ -66,7 +69,7 @@ public class MenuBar extends JMenuBar {
                     JOptionPane.INFORMATION_MESSAGE);
         }
         catch (Exception e) {
-            System.err.print(e.getMessage());
+            e.printStackTrace();
             JOptionPane.showMessageDialog(parentFrame,
                     "Failed to connect: " + e.getMessage(),
                     "Error",
@@ -76,13 +79,14 @@ public class MenuBar extends JMenuBar {
 
     private void handleDisconnect() {
         try {
-            System.out.println("[MenuBar] handleDisconnect invoked.");
+            System.out.println("handleDisconnect invoked.");
             node.stopPeerDiscovery();
             node.stopFileSharing();
             node.stopLocalFolderMonitor();
+            node.stopServer();
 
             JOptionPane.showMessageDialog(parentFrame,
-                    "Disconnected from P2P network.",
+                    "Disconnected from P2P network.\nNo new downloads or file shares can occur now.",
                     "Success",
                     JOptionPane.INFORMATION_MESSAGE);
         }

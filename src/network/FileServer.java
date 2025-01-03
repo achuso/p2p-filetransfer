@@ -14,6 +14,9 @@ public class FileServer implements Runnable {
     private final Socket socket;
     private final Node node;
 
+    private static ServerSocket serverSocket;
+    private static ExecutorService executor;
+
     public FileServer(Socket socket, Node node) {
         this.socket = socket;
         this.node = node;
@@ -40,10 +43,11 @@ public class FileServer implements Runnable {
                 break;
             default:
                 out.writeUTF("ERROR: Unknown command");
+                break;
             }
         }
         catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("FILESERVER IO exception:" + e.getMessage());
         }
     }
 
@@ -56,10 +60,7 @@ public class FileServer implements Runnable {
 
         out.writeUTF("OK");
         var sharedFiles = fileMgr.getSharedFiles();
-        System.out.println("[FileServer] handleListSharedFiles => "
-                + sharedFiles.size() + " file(s) to " + socket.getInetAddress());
         out.writeInt(sharedFiles.size());
-
         for (FileMetaData meta : sharedFiles) {
             out.writeUTF(meta.getFileHash());
             out.writeUTF(meta.getFileName());
@@ -77,7 +78,6 @@ public class FileServer implements Runnable {
 
         FileMetaData meta = fileMgr.getFileMetaDataByHash(fileHash);
         if (meta == null || meta.getFile() == null || !meta.getFile().exists()) {
-            System.out.println("[FileServer] handleFileSizeByHash => no meta for " + fileHash);
             out.writeUTF("ERROR: File not found");
             return;
         }
@@ -99,7 +99,6 @@ public class FileServer implements Runnable {
 
         FileMetaData meta = fileMgr.getFileMetaDataByHash(fileHash);
         if (meta == null || meta.getFile() == null || !meta.getFile().exists()) {
-            System.out.println("[FileServer] handleRequestChunk => no meta for " + fileHash);
             out.writeUTF("ERROR: File not found");
             return;
         }
@@ -108,7 +107,7 @@ public class FileServer implements Runnable {
 
         try (RandomAccessFile raf = new RandomAccessFile(meta.getFile(), "r")) {
             raf.seek(offset);
-            byte[] buffer = new byte[256 * 1024];
+            byte[] buffer = new byte[256*1024];
             long bytesRemaining = chunkSize;
             int bytesRead;
             while (bytesRemaining > 0 &&
@@ -120,17 +119,34 @@ public class FileServer implements Runnable {
     }
 
     public static void startServer(int port, Node node) {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
-            ExecutorService executor = Executors.newCachedThreadPool();
+        try {
+            serverSocket = new ServerSocket(port);
+            executor = Executors.newCachedThreadPool();
             System.out.println("[FileServer] started on port " + port);
 
-            while (true) {
+            while (!serverSocket.isClosed()) {
                 Socket clientSocket = serverSocket.accept();
+                if (serverSocket.isClosed()) break;
                 executor.submit(new FileServer(clientSocket, node));
             }
         }
         catch (IOException e) {
-            System.err.println("[FileServer] Error => " + e.getMessage());
+            System.out.println("[FileServer] server closed => " + e.getMessage());
+        }
+    }
+
+    public static void stopServer() {
+        System.out.println("[FileServer] stopServer() => closing serverSocket");
+        if (serverSocket != null && !serverSocket.isClosed()) {
+            try {
+                serverSocket.close();
+            }
+            catch (IOException e) {
+                System.err.println("FILESERVER stopped: " + e.getMessage());
+            }
+        }
+        if (executor != null) {
+            executor.shutdownNow();
         }
     }
 }
