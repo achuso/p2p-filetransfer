@@ -20,7 +20,7 @@ public class MainWindow extends JFrame {
         UIManager.put("OptionPane.messageFont", new Font("SansSerif", Font.PLAIN, 12));
 
         final TopPanel topPanel = new TopPanel(node);
-        final CenterPanel centerPanel = new CenterPanel();
+        final CenterPanel centerPanel = new CenterPanel(node);
         final BottomPanel bottomPanel = new BottomPanel(node);
 
         // Container for padding purposes
