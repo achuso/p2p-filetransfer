@@ -7,8 +7,8 @@ import java.util.List;
 
 public class FileClient {
 
-    public static List<SimpleFileInfo> requestSharedFiles(String peerIP, int peerPort) {
-        List<SimpleFileInfo> results = new ArrayList<>();
+    public static List<FileInfo> requestSharedFiles(String peerIP, int peerPort) {
+        List<FileInfo> results = new ArrayList<>();
         try (Socket socket = new Socket(peerIP, peerPort);
              DataOutputStream out = new DataOutputStream(socket.getOutputStream());
              DataInputStream in = new DataInputStream(socket.getInputStream())) {
@@ -17,7 +17,7 @@ public class FileClient {
 
             String resp = in.readUTF();
             if (!"OK".equals(resp)) {
-                System.err.println("Peer responded with error: " + resp);
+                System.err.println("Peer error: " + resp);
                 return results;
             }
 
@@ -26,11 +26,11 @@ public class FileClient {
                 String hash = in.readUTF();
                 String name = in.readUTF();
                 long size = in.readLong();
-                results.add(new SimpleFileInfo(hash, name, size));
+                results.add(new FileInfo(hash, name, size));
             }
         }
         catch (IOException e) {
-            System.err.println("requestSharedFiles => " + e.getMessage());
+            System.err.println(e.getMessage());
         }
         return results;
     }
@@ -45,13 +45,13 @@ public class FileClient {
 
             String resp = in.readUTF();
             if (!"OK".equals(resp)) {
-                System.err.println("Peer responded with error: " + resp);
+                System.err.println("Peer error: " + resp);
                 return 0;
             }
             return in.readLong();
         }
         catch (IOException e) {
-            System.err.println("requestFileSizeByHash => " + e.getMessage());
+            System.err.println(e.getMessage());
             return 0;
         }
     }
@@ -70,7 +70,7 @@ public class FileClient {
 
             String resp = in.readUTF();
             if (!"OK".equals(resp)) {
-                System.err.println("Peer responded with error: " + resp);
+                System.err.println("Peer error: " + resp);
                 return false;
             }
 
@@ -87,17 +87,17 @@ public class FileClient {
             return true;
         }
         catch (IOException e) {
-            System.err.println("downloadChunk => " + e.getMessage());
+            System.err.println(e.getMessage());
             return false;
         }
     }
 
-    public static class SimpleFileInfo {
+    public static class FileInfo {
         public final String fileHash;
         public final String fileName;
         public final long fileSize;
 
-        public SimpleFileInfo(String fileHash, String fileName, long fileSize) {
+        public FileInfo(String fileHash, String fileName, long fileSize) {
             this.fileHash = fileHash;
             this.fileName = fileName;
             this.fileSize = fileSize;

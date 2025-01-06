@@ -16,15 +16,11 @@ public class Main {
                 : "10.22.249.198";
 
         if (isDocker) {
-            System.out.println("[Main] Docker => nodeID=" + nodeID + ", nodeIP=" + nodeIP);
-
             Node node = new Node(nodeID, nodeIP, 4113, true);
             node.startServer();
             node.startPeerDiscovery();
             node.startFileSharing();
             node.startLocalFolderMonitor();
-
-            System.out.println("[Main] Node is running in Docker. We'll occasionally show active downloads...");
 
             Thread debugThread = new Thread(() -> {
                 while (true) {
@@ -32,10 +28,10 @@ public class Main {
                         Thread.sleep(1000); // poll active downloads every second
                         var active = node.listActiveDownloads();
                         if (!active.isEmpty()) {
-                            System.out.println("[Main] Active Downloads =>");
-                            for (Node.DownloadProgress dp : active) {
+                            System.out.println("Active Downloads:");
+                            for (Node.DownloadProgress progress : active) {
                                 System.out.printf("  - %s: %5.2f%% of %d bytes\n",
-                                        dp.fileName, dp.getPercent(), dp.totalSize);
+                                        progress.fileName, progress.getPercent(), progress.totalSize);
                             }
                         }
                     }
@@ -54,9 +50,8 @@ public class Main {
             }
         }
         else {
-            System.out.println("[Main] Non-Docker => starting GUI node...");
+            System.out.println("Starting GUI mode");
             Node node = new Node("host", nodeIP, 4113, false);
-            // Start the GUI
             SwingUtilities.invokeLater(() -> new MainWindow(node));
         }
     }

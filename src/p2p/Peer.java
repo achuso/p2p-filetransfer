@@ -12,7 +12,6 @@ public class Peer {
     private final int port;
 
     private final List<File> sharedFiles;
-    private final List<File> downloadedFiles;
 
     private final Set<File> excludedFolders;
     private final Set<String> excludedMasks;
@@ -22,27 +21,26 @@ public class Peer {
         this.ip = ip;
         this.port = port;
         this.sharedFiles = new ArrayList<>();
-        this.downloadedFiles = new ArrayList<>();
         this.excludedFolders = new HashSet<>();
         this.excludedMasks = new HashSet<>();
     }
 
     public void addSharedFile(File file) {
         if (isExcluded(file)) {
-            System.out.println("[Peer] Excluded => " + file.getName());
+            System.out.println("Peer excludes file: " + file.getName());
             return;
         }
         sharedFiles.add(file);
     }
 
-    private boolean isExcluded(File f) {
+    private boolean isExcluded(File file) {
         for (File folder : excludedFolders) {
-            if (f.getAbsolutePath().startsWith(folder.getAbsolutePath())) {
+            if (file.getAbsolutePath().startsWith(folder.getAbsolutePath())) {
                 return true;
             }
         }
         for (String mask : excludedMasks) {
-            if (matchesMask(f.getName(), mask)) {
+            if (matchesMask(file.getName(), mask)) {
                 return true;
             }
         }
@@ -54,22 +52,8 @@ public class Peer {
         return fileName.matches(regex);
     }
 
-    public void excludeFolder(File folder) {
-        excludedFolders.add(folder);
-    }
-
-    public void excludeMask(String mask) {
-        excludedMasks.add(mask);
-    }
-
-    public void addDownloadedFile(File file) {
-        downloadedFiles.add(file);
-    }
-
     public String getPeerID()   { return peerID; }
     public String getIP()       { return ip; }
     public int getPort()        { return port; }
-
     public List<File> getSharedFiles()      { return sharedFiles; }
-    public List<File> getDownloadedFiles()  { return downloadedFiles; }
 }

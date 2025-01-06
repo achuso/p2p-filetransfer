@@ -1,4 +1,0 @@
-1) test chunk download methods more
-2) containers should be able to download too
-3) experiment with hashed files more i guess
-4) more gui functionalities

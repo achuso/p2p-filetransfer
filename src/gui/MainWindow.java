@@ -23,7 +23,6 @@ public class MainWindow extends JFrame {
         final CenterPanel centerPanel = new CenterPanel(node);
         final BottomPanel bottomPanel = new BottomPanel(node);
 
-        // Container for padding purposes
         JPanel container = new JPanel(new BorderLayout(10, 10));
         container.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -40,41 +39,5 @@ public class MainWindow extends JFrame {
 
     private void createMenuBar() {
         setJMenuBar(new MenuBar(this, node));
-    }
-
-    private void handleConnect() {
-        System.out.println("[GUI] handleConnect() invoked in MainWindow.");
-        System.out.println(
-                "[GUI] Node sharedFolder: " + (node.getSharedFolder() == null ? "null" : node.getSharedFolder()));
-        System.out.println(
-                "[GUI] Node downloadFolder: " + (node.getDownloadFolder() == null ? "null" : node.getDownloadFolder()));
-
-        try {
-            node.startServer();
-            node.startPeerDiscovery();
-            node.startFileSharing();
-            JOptionPane.showMessageDialog(this, "Connected to P2P network.",
-                    "Success", JOptionPane.INFORMATION_MESSAGE);
-        }
-        catch (Exception e) {
-            System.err.println(e.getMessage());
-            JOptionPane.showMessageDialog(this, "Failed to connect: "
-                    + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void handleDisconnect() {
-        System.out.println("[GUI] handleDisconnect() invoked in MainWindow.");
-        try {
-            node.stopPeerDiscovery();
-            node.stopFileSharing();
-            JOptionPane.showMessageDialog(this, "Disconnected from P2P network.",
-                    "Success", JOptionPane.INFORMATION_MESSAGE);
-        }
-        catch (Exception e) {
-            System.err.println(e.getMessage());
-            JOptionPane.showMessageDialog(this, "Failed to disconnect: "
-                    + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
     }
 }

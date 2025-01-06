@@ -1,6 +1,5 @@
 package p2p;
 
-import network.FileClient;
 import network.FileServer;
 
 import java.io.*;
@@ -8,18 +7,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Node - Final
- *  1) Folder exclusion works properly => subdirectories are included by default,
- *     but if user excludes "/shared/subdir1", that entire subtree is skipped.
- *  2) If user sets checkRootOnly = true => we only share top-level files in sharedFolder.
- *  3) "disconnect()" forcibly stops sharing, discovery, monitoring, & clears local data.
- */
 public class Node {
-
-    // -------------------------------------------------------------------------
-    // FoundFile => merges owners by fileHash
-    // -------------------------------------------------------------------------
     public static class FoundFile {
         public final String fileHash;
         public final String fileName;
@@ -32,9 +20,6 @@ public class Node {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // DownloadProgress => track single file’s progress
-    // -------------------------------------------------------------------------
     public static class DownloadProgress {
         public final String fileHash;
         public final String fileName;
@@ -54,16 +39,14 @@ public class Node {
         public double getPercent() {
             if (totalSize <= 0) return 0.0;
             double pct = (downloadedBytes * 100.0) / totalSize;
-            return (pct > 100.0)? 100.0 : pct;
+            return Math.min(pct, 100.0);
         }
     }
 
-    // -------------------------------------------------------------------------
     // Exclusion logic
-    // -------------------------------------------------------------------------
-    private final Set<File> excludedFolders;  // subfolders to skip entirely
-    private final Set<String> excludedMasks;  // e.g. *.mp3
-    private boolean checkRootOnly;            // if true => only top-level files
+    private final Set<File> excludedFolders;
+    private final Set<String> excludedMasks;
+    private boolean checkRootOnly;
 
     // Node fields
     private final Peer self;
@@ -74,14 +57,12 @@ public class Node {
     private File downloadFolder;
     private final boolean isDockerMode;
 
-    // background controls
+    // Background controls
     private volatile boolean keepDiscovering = true;
     private volatile boolean keepSharing = true;
     private volatile boolean keepMonitoringFolder = false;
 
-    // "found" => merges owners by hash
     private final Map<String, FoundFile> foundMap;
-    // "active downloads" => keep them at 100%
     private final Map<String, DownloadProgress> activeDownloads;
 
     public Node(String peerID, String ip, int port, boolean isDocker) {
@@ -93,55 +74,44 @@ public class Node {
         this.foundMap = new ConcurrentHashMap<>();
         this.activeDownloads = new ConcurrentHashMap<>();
 
-        // Exclusions
         this.excludedFolders = new HashSet<>();
         this.excludedMasks   = new HashSet<>();
-        this.checkRootOnly   = false; // by default we do subdirs
+        this.checkRootOnly   = false;
 
         if (isDocker) {
-            // defaults => /test/shared, /test/downloads
+            // Defaults for docker: /test/shared, /test/downloads
             sharedFolder   = new File("/test/shared");
             downloadFolder = new File("/test/downloads");
             sharedFolder.mkdirs();
             downloadFolder.mkdirs();
 
-            // initial scan
             refreshSharedFolderWithExclusions(sharedFolder);
             self.getSharedFiles().clear();
 
             if (checkRootOnly) {
                 addTopLevelFiles(sharedFolder);
-            } else {
+            }
+            else {
                 for (FileMetaData md : fileMgr.getSharedFiles()) {
                     self.addSharedFile(md.getFile());
                 }
             }
         }
         else {
-            sharedFolder   = null;
+            sharedFolder = null;
             downloadFolder = null;
         }
     }
 
-    // -------------------------------------------------------------------------
-    // 1) Folder scanning logic
-    // -------------------------------------------------------------------------
-    /**
-     * Clears fileMgr, then either scans top-level only if rootOnly=true,
-     * or recursively scans everything unless excluded.
-     */
     private void refreshSharedFolderWithExclusions(File root) {
         fileMgr.getSharedFiles().clear();
         if (root == null || !root.isDirectory()) return;
 
         if (checkRootOnly) {
-            // top-level only
             File[] top = root.listFiles();
             if (top == null) return;
             for (File f : top) {
-                if (f.isDirectory()) {
-                    // skip subdirs
-                }
+                if (f.isDirectory()) {}
                 else {
                     if (shouldIncludeLocalFile(f)) {
                         fileMgr.addSharedFile(f);
@@ -150,61 +120,46 @@ public class Node {
             }
         }
         else {
-            // recursive approach
-            scanRecursively(root);
+            recursiveScan(root);
         }
     }
 
-    /**
-     * Recursively scan subfolders, skipping if the folder is in excludedFolders
-     * or inside an excluded folder.
-     */
-    private void scanRecursively(File folder) {
-        // if folder is exactly or inside an excluded folder => skip entire subtree
+    private void recursiveScan(File folder) {
         if (isFolderExcluded(folder)) {
-            // debug
-            // System.out.println("Skipping => " + folder.getName() + " due to exclusion");
             return;
         }
 
         File[] all = folder.listFiles();
         if (all == null) return;
 
-        for (File f : all) {
-            if (f.isDirectory()) {
-                scanRecursively(f);
+        for (File file : all) {
+            if (file.isDirectory()) {
+                recursiveScan(file);
             }
             else {
-                if (shouldIncludeLocalFile(f)) {
-                    fileMgr.addSharedFile(f);
+                if (shouldIncludeLocalFile(file)) {
+                    fileMgr.addSharedFile(file);
                 }
             }
         }
     }
 
     private boolean isFolderExcluded(File folder) {
-        // If folder is inside any excluded folder => skip
         String folderPath = folder.getAbsolutePath();
         for (File ex : excludedFolders) {
             String exPath = ex.getAbsolutePath();
-            if (folderPath.equals(exPath)) {
-                return true;
-            }
-            // or if folder is inside ex
-            if (folderPath.startsWith(exPath + File.separator)) {
+            if (folderPath.equals(exPath) || folderPath.startsWith(exPath + File.separator)) {
                 return true;
             }
         }
         return false;
     }
 
-    private boolean shouldIncludeLocalFile(File f) {
-        // if inside excluded folder => skip
-        if (isFolderExcluded(f.getParentFile())) {
+    private boolean shouldIncludeLocalFile(File file) {
+        if (isFolderExcluded(file.getParentFile())) {
             return false;
         }
-        // check file mask
-        String lower = f.getName().toLowerCase();
+        String lower = file.getName().toLowerCase();
         for (String mask : excludedMasks) {
             if (matchesMask(lower, mask)) {
                 return false;
@@ -216,21 +171,19 @@ public class Node {
     private void addTopLevelFiles(File root) {
         File[] top = root.listFiles();
         if (top == null) return;
-        for (File f : top) {
-            if (!f.isDirectory() && shouldIncludeLocalFile(f)) {
-                self.addSharedFile(f);
+        for (File file : top) {
+            if (!file.isDirectory() && shouldIncludeLocalFile(file)) {
+                self.addSharedFile(file);
             }
         }
     }
 
+    // Experiment with the mask further
     private boolean matchesMask(String fileName, String mask) {
         String regex = mask.replace(".", "\\.").replace("*", ".*");
         return fileName.matches(regex);
     }
 
-    // -------------------------------------------------------------------------
-    // Exclusion API => used by centerPanel
-    // -------------------------------------------------------------------------
     public void setCheckRootOnly(boolean val) {
         this.checkRootOnly = val;
     }
@@ -239,14 +192,13 @@ public class Node {
     }
 
     public void addExcludedFolder(File folder) {
-        if (sharedFolder == null) return;
-        // ensure the folder is inside shared
-        if (!folder.getAbsolutePath().startsWith(sharedFolder.getAbsolutePath())) {
-            System.err.println("Exclusion => " + folder
-                    + " is not inside " + sharedFolder + " ignoring");
+        if (sharedFolder == null
+                || !folder.getAbsolutePath().startsWith(sharedFolder.getAbsolutePath())) {
             return;
         }
-        excludedFolders.add(folder);
+        else {
+            excludedFolders.add(folder);
+        }
     }
 
     public void removeExcludedFolder(File folder) {
@@ -261,9 +213,6 @@ public class Node {
         excludedMasks.remove(mask.toLowerCase());
     }
 
-    /**
-     * Re-check local => skip newly excluded subdirs. Also re-check foundMap => skip newly excluded items.
-     */
     public void applyExclusionsNow() {
         // 1) re-check local
         if (sharedFolder != null && sharedFolder.isDirectory()) {
@@ -276,43 +225,37 @@ public class Node {
                 addTopLevelFiles(sharedFolder);
             }
             else {
-                for (FileMetaData md : fileMgr.getSharedFiles()) {
-                    self.addSharedFile(md.getFile());
+                for (FileMetaData metadata : fileMgr.getSharedFiles()) {
+                    self.addSharedFile(metadata.getFile());
                 }
             }
         }
         // 2) re-check found
-        Iterator<Map.Entry<String, FoundFile>> it = foundMap.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<String, FoundFile> e = it.next();
-            FoundFile ff = e.getValue();
-            if (!shouldIncludePseudoFile(ff.fileName)) {
-                it.remove();
+        Iterator<Map.Entry<String, FoundFile>> iter = foundMap.entrySet().iterator();
+        while (iter.hasNext()) {
+            Map.Entry<String, FoundFile> e = iter.next();
+            FoundFile foundFile = e.getValue();
+            if (shouldIncludePseudoFile(foundFile.fileName)) {
+                iter.remove();
             }
         }
     }
 
-    // For discovered peer files => skip if checkRootOnly => the name has a slash, or if mask
     private boolean shouldIncludePseudoFile(String fileName) {
         if (checkRootOnly) {
-            // if there's any slash => subdir => skip
             if (fileName.contains("/") || fileName.contains("\\")) {
-                return false;
+                return true;
             }
         }
-        // also skip if excluded mask
         String lower = fileName.toLowerCase();
         for (String mask : excludedMasks) {
             if (matchesMask(lower, mask)) {
-                return false;
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
-    // -------------------------------------------------------------------------
-    // Start/Stop + "disconnect()" method
-    // -------------------------------------------------------------------------
     public void startServer() {
         new Thread(() -> FileServer.startServer(self.getPort(), this)).start();
     }
@@ -396,12 +339,8 @@ public class Node {
         keepMonitoringFolder = false;
     }
 
-    /**
-     * "disconnect()" => forcibly stops new or ongoing share/discovery,
-     * clears local data, so user can't keep downloading or sharing.
-     */
     public void disconnect() {
-        System.out.println("[Node] disconnect() => forcibly stopping everything.");
+        System.out.println("Node disconnected, hold the presses!");
         stopPeerDiscovery();
         stopFileSharing();
         stopLocalFolderMonitor();
@@ -414,51 +353,44 @@ public class Node {
         fileMgr.getSharedFiles().clear();
     }
 
-    // -------------------------------------------------------------------------
-    // Found logic => merges owners
-    // -------------------------------------------------------------------------
     private void updateFoundMapFromPeers() {
-        for (Peer p : peerMgr.getAllPeers()) {
-            for (File pseudoFile : p.getSharedFiles()) {
+        for (Peer peer : peerMgr.getAllPeers()) {
+            for (File pseudoFile : peer.getSharedFiles()) {
                 String combined = pseudoFile.getName();
-                int idx = combined.indexOf('_');
-                if (idx < 0) continue;
+                int index = combined.indexOf('_');
+                if (index < 0) continue;
 
-                String hash = combined.substring(0, idx);
-                String name = combined.substring(idx + 1);
+                String hash = combined.substring(0, index);
+                String name = combined.substring(index + 1);
 
-                if (!shouldIncludePseudoFile(name)) {
+                if (shouldIncludePseudoFile(name)) {
                     continue;
                 }
                 if (fileMgr.getFileMetaDataByHash(hash) != null) {
                     continue;
                 }
 
-                FoundFile ff = foundMap.get(hash);
-                if (ff == null) {
-                    ff = new FoundFile(hash, name);
-                    foundMap.put(hash, ff);
+                FoundFile foundFile = foundMap.get(hash);
+                if (foundFile == null) {
+                    foundFile = new FoundFile(hash, name);
+                    foundMap.put(hash, foundFile);
                 }
-                ff.owners.add(p.getIP());
+                foundFile.owners.add(peer.getIP());
             }
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Multi-source chunk logic => 256 KB
-    // -------------------------------------------------------------------------
     public void multiSourceDownload(String fileHash, String fileName) {
-        // If forcibly disconnected, you might skip. But let's assume user won't call after disconnect
-        DownloadProgress dp = activeDownloads.get(fileHash);
-        if (dp == null) {
-            dp = new DownloadProgress(fileHash, fileName);
-            activeDownloads.put(fileHash, dp);
+        DownloadProgress progress = activeDownloads.get(fileHash);
+        if (progress == null) {
+            progress = new DownloadProgress(fileHash, fileName);
+            activeDownloads.put(fileHash, progress);
         }
-        FoundFile ff = foundMap.get(fileHash);
-        if (ff == null) {
+        FoundFile foundFile = foundMap.get(fileHash);
+        if (foundFile == null) {
             return;
         }
-        List<String> owners = new ArrayList<>(ff.owners);
+        List<String> owners = new ArrayList<>(foundFile.owners);
         if (owners.isEmpty()) {
             return;
         }
@@ -474,7 +406,7 @@ public class Node {
         if (fileSize <= 0) {
             return;
         }
-        dp.totalSize = fileSize;
+        progress.totalSize = fileSize;
 
         long chunkSize = 256L * 1024L;
         long totalChunks = (fileSize + chunkSize - 1) / chunkSize;
@@ -482,26 +414,27 @@ public class Node {
         File tempFolder = new File(downloadFolder, "temp_" + fileHash);
         tempFolder.mkdirs();
 
-        for (int i=0; i<totalChunks; i++) {
+        for (int i = 0; i < totalChunks; i++) {
             long offset = i * chunkSize;
             long csize = Math.min(chunkSize, fileSize - offset);
 
             String chosenIP = owners.get(i % owners.size());
             File chunkFile = new File(tempFolder, "chunk_" + i);
 
-            boolean ok = network.FileClient.downloadChunk(chosenIP, 4113, fileHash, offset, csize, chunkFile);
-            if (ok) {
-                dp.downloadedBytes += csize;
+            boolean isOK = network.FileClient.downloadChunk(chosenIP, 4113, fileHash, offset, csize, chunkFile);
+            if (isOK) {
+                progress.downloadedBytes += csize;
             }
         }
         reassembleFile(fileHash, fileName, fileSize, tempFolder);
-        dp.isComplete = true;
+        progress.isComplete = true;
     }
 
     private void reassembleFile(String hash, String name, long size, File tempFolder) {
         File finalFile = new File(downloadFolder, name);
         long written = 0;
         int chunkIndex = 0;
+
         try (FileOutputStream fos = new FileOutputStream(finalFile)) {
             while (written < size) {
                 File cf = new File(tempFolder, "chunk_" + chunkIndex);
@@ -520,21 +453,19 @@ public class Node {
             }
         }
         catch (IOException e) {
-            e.printStackTrace();
+            System.err.println(e.getMessage());
         }
 
-        // verify final
         try {
             String calc = p2p.FileTransferMgr.calculateFileHash(finalFile);
             if (!calc.equals(hash)) {
-                System.err.println("[Node] hash mismatch => expected=" + hash + ", got=" + calc);
+                System.err.println("HASH MISMATCH: expected " + hash + " got " + calc);
             }
         }
         catch (IOException | NoSuchAlgorithmException e) {
-            e.printStackTrace();
+            System.err.println(e.getMessage());
         }
 
-        // cleanup
         File[] leftover = tempFolder.listFiles();
         if (leftover != null) {
             for (File f : leftover) {
@@ -544,44 +475,29 @@ public class Node {
         tempFolder.delete();
     }
 
-    // -------------------------------------------------------------------------
-    // Basic Access
-    // -------------------------------------------------------------------------
-    public List<FoundFile> getFoundFiles() {
-        return new ArrayList<>(foundMap.values());
-    }
+    public List<FoundFile> getFoundFiles() { return new ArrayList<>(foundMap.values()); }
+    public List<DownloadProgress> listActiveDownloads() { return new ArrayList<>(activeDownloads.values()); }
+    public FileMgr getFileManager() { return fileMgr; }
+    public Peer getSelf() { return self; }
 
-    public List<DownloadProgress> listActiveDownloads() {
-        return new ArrayList<>(activeDownloads.values());
-    }
-
-    public FileMgr getFileManager() {
-        return fileMgr;
-    }
-
-    public Peer getSelf() {
-        return self;
-    }
-
-    // Let user pick shared & download folders
     public void setSharedFolder(String path) {
-        File sf = new File(path);
-        if (!sf.exists() || !sf.isDirectory()) {
+        File sharedFolder = new File(path);
+        if (!sharedFolder.exists() || !sharedFolder.isDirectory()) {
             throw new IllegalArgumentException("Invalid shared => " + path);
         }
-        sharedFolder = sf;
+        this.sharedFolder = sharedFolder;
 
         fileMgr.getSharedFiles().clear();
         self.getSharedFiles().clear();
 
-        refreshSharedFolderWithExclusions(sharedFolder);
+        refreshSharedFolderWithExclusions(this.sharedFolder);
 
         if (checkRootOnly) {
-            addTopLevelFiles(sharedFolder);
+            addTopLevelFiles(this.sharedFolder);
         }
         else {
-            for (FileMetaData md : fileMgr.getSharedFiles()) {
-                self.addSharedFile(md.getFile());
+            for (FileMetaData metadata : fileMgr.getSharedFiles()) {
+                self.addSharedFile(metadata.getFile());
             }
         }
     }
@@ -592,11 +508,7 @@ public class Node {
         downloadFolder = df;
     }
 
-    public File getSharedFolder() {
-        return sharedFolder;
-    }
+    public File getSharedFolder() { return sharedFolder; }
 
-    public File getDownloadFolder() {
-        return downloadFolder;
-    }
+    public File getDownloadFolder() { return downloadFolder; }
 }

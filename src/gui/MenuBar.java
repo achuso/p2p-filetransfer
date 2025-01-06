@@ -12,21 +12,7 @@ public class MenuBar extends JMenuBar {
         this.parentFrame = parentFrame;
         this.node = node;
 
-        JMenu fileMenu = new JMenu("File");
-
-        JMenuItem connectItem = new JMenuItem("Connect");
-        connectItem.addActionListener(e -> handleConnect());
-
-        JMenuItem disconnectItem = new JMenuItem("Disconnect");
-        disconnectItem.addActionListener(e -> handleDisconnect());
-
-        JMenuItem exitItem = new JMenuItem("Exit");
-        exitItem.addActionListener(e -> System.exit(0));
-
-        fileMenu.add(connectItem);
-        fileMenu.add(disconnectItem);
-        fileMenu.addSeparator();
-        fileMenu.add(exitItem);
+        JMenu fileMenu = getjMenu();
         add(fileMenu);
 
         JMenu helpMenu = new JMenu("Help");
@@ -42,6 +28,25 @@ public class MenuBar extends JMenuBar {
         ));
         helpMenu.add(aboutItem);
         add(helpMenu);
+    }
+
+    private JMenu getjMenu() {
+        JMenu fileMenu = new JMenu("File");
+
+        JMenuItem connectItem = new JMenuItem("Connect");
+        connectItem.addActionListener(e -> handleConnect());
+
+        JMenuItem disconnectItem = new JMenuItem("Disconnect");
+        disconnectItem.addActionListener(e -> handleDisconnect());
+
+        JMenuItem exitItem = new JMenuItem("Exit");
+        exitItem.addActionListener(e -> System.exit(0));
+
+        fileMenu.add(connectItem);
+        fileMenu.add(disconnectItem);
+        fileMenu.addSeparator();
+        fileMenu.add(exitItem);
+        return fileMenu;
     }
 
     private void handleConnect() {
@@ -66,7 +71,6 @@ public class MenuBar extends JMenuBar {
 
     private void handleDisconnect() {
         try {
-            // call the new Node method => forcibly stops everything
             node.disconnect();
 
             JOptionPane.showMessageDialog(parentFrame,

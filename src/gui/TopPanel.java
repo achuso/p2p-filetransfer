@@ -11,8 +11,6 @@ import java.io.File;
 public class TopPanel extends JPanel {
     private JTextField sharedFolderTextField;
     private JTextField destinationFolderTextField;
-    private JButton setSharedFolderButton;
-    private JButton setDestinationButton;
 
     private final Node node;
 
@@ -31,23 +29,34 @@ public class TopPanel extends JPanel {
         sharedFolderTextField.setEditable(false);
         sharedFolderPanel.add(sharedFolderTextField, BorderLayout.CENTER);
 
-        setSharedFolderButton = new JButton("Browse");
-        setSharedFolderButton.addActionListener(e -> {
+        JButton setSharedFolderButton = getjButton();
+        sharedFolderPanel.add(setSharedFolderButton, BorderLayout.EAST);
+
+        return sharedFolderPanel;
+    }
+
+    private JButton getjButton() {
+        JButton setSharedFolderButton = new JButton("Browse");
+        setSharedFolderButton.addActionListener(_ -> {
             String path = selectFolder();
             if (path != null) {
                 try {
                     node.setSharedFolder(path);
                     sharedFolderTextField.setText(path);
-                    JOptionPane.showMessageDialog(this, "Shared folder updated successfully to: " + path, "Success", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(this,
+                            "Shared folder now set to: " + path,
+                            "Success",
+                            JOptionPane.INFORMATION_MESSAGE);
                 }
-                catch (RuntimeException ex) {
-                    JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                catch (RuntimeException rte) {
+                    JOptionPane.showMessageDialog(this,
+                            rte.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
-        sharedFolderPanel.add(setSharedFolderButton, BorderLayout.EAST);
-
-        return sharedFolderPanel;
+        return setSharedFolderButton;
     }
 
     private JPanel createDestinationFolderPanel() {
@@ -58,23 +67,34 @@ public class TopPanel extends JPanel {
         destinationFolderTextField.setEditable(false);
         destinationFolderPanel.add(destinationFolderTextField, BorderLayout.CENTER);
 
-        setDestinationButton = new JButton("Browse");
-        setDestinationButton.addActionListener(e -> {
+        JButton setDestinationButton = getBrowseButton();
+        destinationFolderPanel.add(setDestinationButton, BorderLayout.EAST);
+
+        return destinationFolderPanel;
+    }
+
+    private JButton getBrowseButton() {
+        JButton setDestinationButton = new JButton("Browse");
+        setDestinationButton.addActionListener(_ -> {
             String path = selectFolder();
             if (path != null) {
                 try {
                     node.setDownloadFolder(path);
                     destinationFolderTextField.setText(path);
-                    JOptionPane.showMessageDialog(this, "Download folder updated successfully to: " + path, "Success", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(this,
+                            "Download folder now set to: " + path,
+                            "Success",
+                            JOptionPane.INFORMATION_MESSAGE);
                 }
-                catch (RuntimeException ex) {
-                    JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                catch (RuntimeException rte) {
+                    JOptionPane.showMessageDialog(this,
+                            rte.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
-        destinationFolderPanel.add(setDestinationButton, BorderLayout.EAST);
-
-        return destinationFolderPanel;
+        return setDestinationButton;
     }
 
     private String selectFolder() {
@@ -86,7 +106,7 @@ public class TopPanel extends JPanel {
             File selectedFolder = fileChooser.getSelectedFile();
             return selectedFolder.getAbsolutePath();
         }
-        return null; // If the user cancels
+        return null;
     }
 
     private Border createTitledBorder(String title) {

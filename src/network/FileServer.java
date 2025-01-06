@@ -61,6 +61,7 @@ public class FileServer implements Runnable {
         out.writeUTF("OK");
         var sharedFiles = fileMgr.getSharedFiles();
         out.writeInt(sharedFiles.size());
+
         for (FileMetaData meta : sharedFiles) {
             out.writeUTF(meta.getFileHash());
             out.writeUTF(meta.getFileName());
@@ -122,7 +123,7 @@ public class FileServer implements Runnable {
         try {
             serverSocket = new ServerSocket(port);
             executor = Executors.newCachedThreadPool();
-            System.out.println("[FileServer] started on port " + port);
+            System.out.println("FileServer started on port " + port);
 
             while (!serverSocket.isClosed()) {
                 Socket clientSocket = serverSocket.accept();
@@ -131,22 +132,20 @@ public class FileServer implements Runnable {
             }
         }
         catch (IOException e) {
-            System.out.println("[FileServer] server closed => " + e.getMessage());
+            System.out.println("FileServer closed: " + e.getMessage());
         }
     }
 
     public static void stopServer() {
-        System.out.println("[FileServer] stopServer() => closing serverSocket");
+        System.out.println("Closing serverSocket");
         if (serverSocket != null && !serverSocket.isClosed()) {
             try {
                 serverSocket.close();
             }
             catch (IOException e) {
-                System.err.println("FILESERVER stopped: " + e.getMessage());
+                System.err.println("FileServer stopped: " + e.getMessage());
             }
         }
-        if (executor != null) {
-            executor.shutdownNow();
-        }
+        if (executor != null) executor.shutdownNow();
     }
 }

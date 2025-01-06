@@ -6,7 +6,7 @@ import java.security.NoSuchAlgorithmException;
 
 public class FileTransferMgr {
 
-    public static final int MAX_RETRIES = 3;
+    // public static final int MAX_RETRIES = 3;
 
     public static String calculateFileHash(File file)
             throws IOException, NoSuchAlgorithmException {
@@ -19,8 +19,8 @@ public class FileTransferMgr {
             }
         }
         StringBuilder sb = new StringBuilder();
-        for (byte b : digest.digest()) {
-            sb.append(String.format("%02x", b));
+        for (byte bayt : digest.digest()) {
+            sb.append(String.format("%02x", bayt));
         }
         return sb.toString();
     }
